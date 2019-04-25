@@ -1,0 +1,68 @@
+{
+	"info": {
+		"_postman_id": "9a093b76-66a8-4f16-91f2-b941371627fd",
+		"name": "JasperReport API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "GET serverInfo",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://{{server}}/rest_v2/serverInfo",
+					"protocol": "http",
+					"host": [
+						"{{server}}"
+					],
+					"path": [
+						"rest_v2",
+						"serverInfo"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET resources/?expanded=true",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/repository.folder+json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://{{server}}/rest_v2/resources/?expanded=true",
+					"protocol": "http",
+					"host": [
+						"{{server}}"
+					],
+					"path": [
+						"rest_v2",
+						"resources",
+						""
+					],
+					"query": [
+						{
+							"key": "expanded",
+							"value": "true"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
