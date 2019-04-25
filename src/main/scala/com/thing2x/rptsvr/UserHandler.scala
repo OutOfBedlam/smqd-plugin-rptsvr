@@ -11,6 +11,7 @@ object UserHandler {
   case class User(username: String,
                   fullName: String,
                   previousPasswordChangeTime: String,
+                  tenantId: String,
                   roles: Seq[Role],
                   externallyDefined: Boolean,
                   enabled: Boolean
@@ -19,10 +20,12 @@ object UserHandler {
 
 class UserHandler()(implicit executionContex: ExecutionContext) {
 
-  def getUser(username: String): Future[User] = Future {
+  def getUser(username: String, organization: Option[String]): Future[User] = Future {
+    val tenantId = organization.getOrElse("")
     User(username = username,
       fullName="Joe User",
-      previousPasswordChangeTime = "2019-04-19T18:53:07.602-07:00",
+      previousPasswordChangeTime = "2019-04-24T01:15:14.000+0000",
+      tenantId = tenantId,
       roles = Seq(Role("ROLE_USER", externallyDefined = false)),
       externallyDefined = false,
       enabled = true

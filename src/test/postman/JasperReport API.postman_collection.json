@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "9a093b76-66a8-4f16-91f2-b941371627fd",
+		"_postman_id": "95c0b500-b3f0-4e1d-b199-c9694cb4b05e",
 		"name": "JasperReport API",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
@@ -9,7 +9,13 @@
 			"name": "GET serverInfo",
 			"request": {
 				"method": "GET",
-				"header": [],
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
 				"body": {
 					"mode": "raw",
 					"raw": ""
@@ -23,6 +29,80 @@
 					"path": [
 						"rest_v2",
 						"serverInfo"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get j_spring_security_check",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://{{server}}/j_spring_security_check?j_username={{username}}&j_password={{userpassword}}&forceDefaultRedirect=false",
+					"protocol": "http",
+					"host": [
+						"{{server}}"
+					],
+					"path": [
+						"j_spring_security_check"
+					],
+					"query": [
+						{
+							"key": "j_username",
+							"value": "{{username}}"
+						},
+						{
+							"key": "j_password",
+							"value": "{{userpassword}}"
+						},
+						{
+							"key": "forceDefaultRedirect",
+							"value": "false"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET users/{{username}}",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://{{server}}/rest_v2/organizations/organization_1/users/{{username}}",
+					"protocol": "http",
+					"host": [
+						"{{server}}"
+					],
+					"path": [
+						"rest_v2",
+						"organizations",
+						"organization_1",
+						"users",
+						"{{username}}"
 					]
 				}
 			},
@@ -58,6 +138,173 @@
 						{
 							"key": "expanded",
 							"value": "true"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET resources/public/some?expanded=true Copy",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/repository.folder+json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://{{server}}/rest_v2/resources/public/STA_N9.VIP_CUSTOMER_LIST?expanded=true",
+					"protocol": "http",
+					"host": [
+						"{{server}}"
+					],
+					"path": [
+						"rest_v2",
+						"resources",
+						"public",
+						"STA_N9.VIP_CUSTOMER_LIST"
+					],
+					"query": [
+						{
+							"key": "expanded",
+							"value": "true"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET resources/public?expanded=true",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/repository.folder+json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://{{server}}/rest_v2/resources/public?expanded=true",
+					"protocol": "http",
+					"host": [
+						"{{server}}"
+					],
+					"path": [
+						"rest_v2",
+						"resources",
+						"public"
+					],
+					"query": [
+						{
+							"key": "expanded",
+							"value": "true"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET resources?folderUri=/",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://{{server}}/rest_v2/resources?folderUri=/&recursive=false&sortBy=label&limit=0",
+					"protocol": "http",
+					"host": [
+						"{{server}}"
+					],
+					"path": [
+						"rest_v2",
+						"resources"
+					],
+					"query": [
+						{
+							"key": "folderUri",
+							"value": "/"
+						},
+						{
+							"key": "recursive",
+							"value": "false"
+						},
+						{
+							"key": "sortBy",
+							"value": "label"
+						},
+						{
+							"key": "limit",
+							"value": "0"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET resources?folderUri=/public",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://{{server}}/rest_v2/resources?folderUri=/public&recursive=false&sortBy=label&limit=0",
+					"protocol": "http",
+					"host": [
+						"{{server}}"
+					],
+					"path": [
+						"rest_v2",
+						"resources"
+					],
+					"query": [
+						{
+							"key": "folderUri",
+							"value": "/public"
+						},
+						{
+							"key": "recursive",
+							"value": "false"
+						},
+						{
+							"key": "sortBy",
+							"value": "label"
+						},
+						{
+							"key": "limit",
+							"value": "0"
 						}
 					]
 				}
