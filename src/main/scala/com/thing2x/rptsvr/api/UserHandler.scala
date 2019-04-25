@@ -1,6 +1,10 @@
-package com.thing2x.rptsvr
+package com.thing2x.rptsvr.api
 
-import com.thing2x.rptsvr.UserHandler.{Role, User}
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
+import com.thing2x.rptsvr.api.UserHandler.{Role, User}
+import io.circe.Json
+import io.circe.generic.auto._
+import io.circe.syntax._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,9 +24,9 @@ object UserHandler {
 
 class UserHandler()(implicit executionContex: ExecutionContext) {
 
-  def getUser(username: String, organization: Option[String]): Future[User] = Future {
+  def getUser(username: String, organization: Option[String]): Future[(StatusCode, Json)] = Future {
     val tenantId = organization.getOrElse("")
-    User(username = username,
+    val user = User(username = username,
       fullName="Joe User",
       previousPasswordChangeTime = "2019-04-24T01:15:14.000+0000",
       tenantId = tenantId,
@@ -30,5 +34,6 @@ class UserHandler()(implicit executionContex: ExecutionContext) {
       externallyDefined = false,
       enabled = true
     )
+    (StatusCodes.OK, user.asJson)
   }
 }

@@ -1,6 +1,10 @@
-package com.thing2x.rptsvr
+package com.thing2x.rptsvr.api
 
-import com.thing2x.rptsvr.ServerInfoHandler.ServerInfo
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
+import com.thing2x.rptsvr.api.ServerInfoHandler.ServerInfo
+import io.circe.Json
+import io.circe.generic.auto._
+import io.circe.syntax._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -18,8 +22,8 @@ object ServerInfoHandler {
 
 class ServerInfoHandler()(implicit executionContex: ExecutionContext) {
 
-  def getServerInfo: Future[ServerInfo] = Future {
-    ServerInfo(
+  def getServerInfo: Future[(StatusCode, Json)] = Future {
+    val info = ServerInfo(
       version="7.1.0",
       build="20180427_1213",
       edition="PRO",
@@ -30,5 +34,6 @@ class ServerInfoHandler()(implicit executionContex: ExecutionContext) {
       dateFormatPattern = "yyyy-MM-dd",
       datetimeFormatPattern = "yyyy-MM-dd'T'HH:mm:ss",
     )
+    (StatusCodes.OK, info.asJson)
   }
 }

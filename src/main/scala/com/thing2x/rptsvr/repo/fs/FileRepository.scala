@@ -4,8 +4,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import com.thing2x.rptsvr.ResourceHandler.{FileResource, FolderResource, ReportUnitResource}
-import com.thing2x.rptsvr.{Repository, Resource}
+import com.thing2x.rptsvr.{FileResource, FolderResource, ReportUnitResource, Repository, Resource}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
@@ -29,7 +28,7 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
 
   private val rootPath = root.getCanonicalPath
 
-  private val rootResource = FolderResource(uri="/", resourceType = "folder", label="Organizations", description="Organizations",
+  private val rootResource = FolderResource(uri="/", label="Organizations", description="Organizations",
     permissionMask=1, creationDate="2013-07-04T12:18:47", updateDate="2013-07-04T12:18:47", version=0)
 
   private val dateFormat = new SimpleDateFormat(config.getString("formats.date"))
@@ -90,10 +89,25 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
     ReportUnitResource(uri(file), name, permissionMask = 1, creationDate = lastModified, updateDate = lastModified, version = 0)
   }
 
-  def listFolder(folderUri: String, recursive: Boolean, sortBy: String, limit: Int): Future[Seq[Resource]] = Future {
-    val file = new File(root, folderUri)
+  def createFolder(path: String, createFolders: Boolean): Future[FolderResource] = Future {
+    logger.debug(s"create folder: $path")
+    val file = new File(root, path)
+    val result = if (createFolders) file.mkdirs() else file.mkdir()
+    if (result)
+      getResource(path, expanded = false).asInstanceOf[Future[FolderResource]]
+    else
+      throw new RuntimeException(s"Fail to create folder: $path")
+  }.flatten
 
-    logger.debug(s"list folder: $folderUri")
+  def getFolder(path: String): Future[FolderResource] = Future {
+    val file = new File(root, path)
+    folderResource(file)
+  }
+
+  def listFolder(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[Seq[Resource]] = Future {
+    logger.debug(s"list folder: $path")
+
+    val file = new File(root, path)
     file.listFiles().flatMap{ f =>
       if (f.isDirectory) {
         val meta = new File(f, "reportunit.json")
@@ -141,5 +155,11 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
           throw new RuntimeException(s"Resource not found: $path")
         }
     }
+  }
+
+  def deleteResource(path: String): Future[Boolean] = Future {
+    logger.debug(s"delete resource: $path")
+    val file = new File(root, path)
+    file.delete()
   }
 }
