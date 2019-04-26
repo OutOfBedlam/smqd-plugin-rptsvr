@@ -2,13 +2,12 @@ package com.thing2x.rptsvr.api
 
 import akka.http.scaladsl.model.MediaType
 import akka.http.scaladsl.server.{Directives, Route}
-import com.thing2x.rptsvr.ResourceMediaTypes
 import com.thing2x.smqd.net.http.HttpServiceContext
 import com.thing2x.smqd.rest.RestController
 import com.thing2x.smqd.util.FailFastCirceSupport
 
 class RestV2Controller(name: String, context: HttpServiceContext) extends RestController(name, context)
-  with Directives with FailFastCirceSupport with ResourceMediaTypes {
+  with Directives with FailFastCirceSupport {
 
   import context.smqdInstance.Implicit._
   private val serverInfoHandler = new ServerInfoHandler
@@ -48,7 +47,7 @@ class RestV2Controller(name: String, context: HttpServiceContext) extends RestCo
     } ~
     path( "resources") {
       (get & parameters('folderUri, 'recursive.as[Boolean], 'sortBy, 'limit.as[Int])) { (uri, recursive, sortBy, limit) =>
-        complete(resourceHandler.listFolder(uri, recursive, sortBy, limit))
+        complete(resourceHandler.lookupResource(uri, recursive, sortBy, limit))
       }
     }
   }
