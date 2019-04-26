@@ -24,7 +24,9 @@ trait Resource {
   val version: Int
 }
 
-case class GeneralResource(uri: String, label: String, permissionMask: Int, version: Int) extends Resource
+case class CreateFolderRequest(uri: String, label: String, permissionMask: Int, version: Int) extends Resource
+
+case class CreateFileRequest(uri: String, label: String, permissionMask: Int, version: Int, `type`: String, content: String) extends Resource
 
 case class FolderResource(uri: String,
                           label: String,

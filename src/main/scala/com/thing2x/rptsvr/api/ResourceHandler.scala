@@ -35,10 +35,12 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
   }
 
   def getResource(path: String, expanded: Boolean, accept: MediaType): Future[(StatusCode, Json)] = {
-    logger.debug(s"get resource: $path $accept")
+    logger.debug(s"get resource >> $path expanded=$expanded accept=$accept")
     accept match {
       case `application/repository.folder+json` =>
         repo.getFolder(path).map(r => (StatusCodes.OK, r.asJson))
+      case `application/repository.resourceLookup+json` =>
+        repo.getResource(path, expanded).map(r => (StatusCodes.OK, r.asJson))
       case _ =>
         repo.getResource(path, expanded).map(r => (StatusCodes.OK, r.asJson))
     }
@@ -52,8 +54,12 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
     }.flatMap{ json =>
       content.contentType.mediaType match {
         case `application/repository.folder+json` =>
-          val folder = json.as[GeneralResource].right.get
-          repo.createFolder(folder.uri, createFolders).map(r => (StatusCodes.OK, r.asJson))
+          val req = json.as[CreateFolderRequest].right.get
+          repo.createFolder(req).map(r => (StatusCodes.OK, r.asJson))
+
+        case `application/repository.file+json` =>
+          val req = json.as[CreateFileRequest].right.get
+          repo.createFile(req, createFolders, overwrite).map(r => (StatusCodes.OK, r.asJson))
 
         case `application/repository.jdbcDataSource+json` =>
           val ds = json.as[DSJdbcResource].right.get
@@ -66,6 +72,13 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
   }
 
   def deleteResource(path: String): Future[(StatusCode, Json)] = {
-    repo.deleteResource(path).map( r => (StatusCodes.OK, Json.obj(("success", r.asJson))))
+    repo.deleteResource(path).map { success =>
+      if (success) {
+        (StatusCodes.OK, Json.obj(("success", Json.fromBoolean(success))))
+      }
+      else {
+        (StatusCodes.InternalServerError, Json.obj(("error", Json.fromString(s"can not delete resource $path"))))
+      }
+    }
   }
 }
