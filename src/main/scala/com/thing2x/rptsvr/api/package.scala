@@ -1,6 +1,6 @@
 package com.thing2x.rptsvr
 
-import akka.http.scaladsl.model.{ContentType, HttpCharsets, HttpEntity, HttpResponse, MediaType, ResponseEntity, StatusCode}
+import akka.http.scaladsl.model.{ContentType, HttpCharsets, HttpEntity, HttpResponse, MediaType, ResponseEntity, StatusCode, StatusCodes}
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Encoder, Json}
@@ -67,6 +67,31 @@ package object api {
     HttpResponse(statusCode, Nil, HttpEntity(ContentType(`application/json`), json.noSpaces))
   }
 
+  implicit def asHttpResponseFromResult[T <: Resource](tup: (StatusCode, Result[T])): HttpResponse = {
+    asHttpResponseFromResult(tup._1, tup._2)
+  }
+
+  implicit def asHttpResponseFromResult[T <: Resource](successCode: StatusCode, result: Result[T]): HttpResponse = {
+    result match {
+      case Right(r) => asHttpResponseFromResource(successCode, r)
+      case Left(exception) => exception match {
+        case ex: ResourceNotFoundException => asHttpResponseFromException(StatusCodes.NotFound, ex)
+        case ex: ResourceAlreadyExistsExeption => asHttpResponseFromException(StatusCodes.BadRequest, ex)
+        case _ => asHttpResponseFromException(StatusCodes.InternalServerError, exception)
+      }
+    }
+  }
+
+  implicit def asHttpResponseFromException(tup: (StatusCode, Throwable)): HttpResponse = {
+    asHttpResponseFromException(tup._1, tup._2)
+  }
+
+  implicit def asHttpResponseFromException(statusCode: StatusCode, ex: Throwable): HttpResponse = {
+    HttpResponse(statusCode, Nil, HttpEntity(ContentType(`application/json`), Json.obj(
+      ("exception", Json.fromString(ex.getMessage))
+    ).noSpaces))
+  }
+
   implicit val resourceEncoder: Encoder[Resource] = new Encoder[Resource] {
     override def apply(resource: Resource): Json = {
       resource match {
@@ -74,6 +99,7 @@ package object api {
         case r: FileResource => r.asJson
         case r: DSJdbcResource => r.asJson
         case r: ReportUnitResource => r.asJson
+        case _ => resource.asJson
       }
     }
   }

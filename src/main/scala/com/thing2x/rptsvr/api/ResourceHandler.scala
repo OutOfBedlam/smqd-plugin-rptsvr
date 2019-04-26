@@ -26,9 +26,12 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
   private val repo = ResourceHandler.findRepositoryInstance(smqd)
 
   def lookupResource(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[HttpResponse] =
-    repo.listFolder(path, recursive, sortBy, limit).map { r =>
-      val result = ResourceLookupResponse(r)
-      (StatusCodes.OK, result.asJson)
+    repo.listFolder(path, recursive, sortBy, limit).map {
+      case Right(list) =>
+        val result = ResourceLookupResponse(list)
+        (StatusCodes.OK, result.asJson)
+      case Left(ex) =>
+        (StatusCodes.InternalServerError, ex)
     }
 
   def getResource(path: String, expanded: Boolean, accept: MediaType): Future[HttpResponse] = {
@@ -52,11 +55,11 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
       content.contentType.mediaType match {
         case `application/repository.folder+json` =>
           val req = json.as[CreateFolderRequest].right.get
-          repo.createFolder(req).map( (StatusCodes.OK, _) )
+          repo.createFolder(req).map( (StatusCodes.Created, _) )
 
         case `application/repository.file+json` =>
           val req = json.as[CreateFileRequest].right.get
-          repo.createFile(req, createFolders, overwrite).map( (StatusCodes.OK, _) )
+          repo.createFile(req, createFolders, overwrite).map( (StatusCodes.Created, _) )
 
 //        case `application/repository.jdbcDataSource+json` =>
 //          val ds = json.as[DSJdbcResource].right.get
@@ -64,7 +67,7 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
 
         case ct =>
           Future{
-            (StatusCodes.InternalServerError, Json.obj(("error", Json.fromString(s"Unhandled content type: $ct"))))
+            (StatusCodes.BadRequest, Json.obj(("error", Json.fromString(s"Unhandled content type: $ct"))))
           }
       }
     }

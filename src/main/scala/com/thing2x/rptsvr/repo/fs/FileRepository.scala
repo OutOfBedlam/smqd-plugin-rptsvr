@@ -40,27 +40,37 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
   // Folder
   /////////////////////////////////////////////////
 
-  def createFolder(request: CreateFolderRequest): Future[FolderResource] = Future {
+  def createFolder(request: CreateFolderRequest): Future[Result[FolderResource]] = Future {
     logger.debug(s"create folder: $request")
     val fr = FrFolder(request.uri)
-    fr.mkdir(request.label, request.permissionMask, request.version + 1)
-    fr.asResource
+    if (fr.mkdir(request.label, request.permissionMask, request.version + 1))
+      Right(fr.asResource)
+    else
+      Left(new IllegalAccessException(s"fail to create folder: ${request.uri}"))
   }
 
-  def getFolder(uri: String): Future[FolderResource] = Future {
-    FrFolder(uri).asResource
+  def getFolder(uri: String): Future[Result[FolderResource]] = Future {
+    val fr = FrFolder(uri)
+    if (fr.exists)
+      Right(fr.asResource)
+    else
+      Left(new ResourceNotFoundException(uri))
   }
 
-  def listFolder(uri: String, recursive: Boolean, sortBy: String, limit: Int): Future[Seq[Resource]] = Future {
+  def listFolder(uri: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]] = Future {
     logger.debug(s"list folder: $uri")
-    FrFolder(uri).list.map(_.asResource)
+    val fr = FrFolder(uri)
+    if (fr.exists)
+      Right(fr.list.map(_.asResource))
+    else
+      Left(new ResourceNotFoundException(uri))
   }
 
   /////////////////////////////////////////////////
   // File
   /////////////////////////////////////////////////
 
-  override def createFile(request: CreateFileRequest, createFolders: Boolean, overwrite: Boolean): Future[FileResource] = Future {
+  override def createFile(request: CreateFileRequest, createFolders: Boolean, overwrite: Boolean): Future[Result[FileResource]] = Future {
     logger.debug(s"create file: $request")
     // uri: String, label: String, permissionMask: Int, version: Int, `type`: String, content: String
     val fr = FrFile(request.uri, request.`type`)
@@ -77,7 +87,7 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
   // General Resource
   /////////////////////////////////////////////////
 
-  def getResource(path: String, expanded: Boolean): Future[Resource] = Future {
+  def getResource(path: String, expanded: Boolean): Future[Result[Resource]] = Future {
     logger.debug(s"get resource: $path expanded=$expanded")
     val fr = FrFile(path)
     fr.asResource
