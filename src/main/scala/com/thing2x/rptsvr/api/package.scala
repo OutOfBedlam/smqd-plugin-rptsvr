@@ -1,5 +1,7 @@
 package com.thing2x.rptsvr
 
+import java.io.FileNotFoundException
+
 import akka.http.scaladsl.model.{ContentType, HttpCharsets, HttpEntity, HttpResponse, MediaType, ResponseEntity, StatusCode, StatusCodes}
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -10,16 +12,24 @@ import scala.language.implicitConversions
 package object api {
   val `application/json`: MediaType.WithFixedCharset =
     MediaType.applicationWithFixedCharset("json", HttpCharsets.`UTF-8`)
+
   val `application/repository.folder+json`: MediaType.WithFixedCharset =
     MediaType.applicationWithFixedCharset("repository.folder+json", HttpCharsets.`UTF-8`)
+
   val `application/repository.file+json`: MediaType.WithFixedCharset =
     MediaType.applicationWithFixedCharset("repository.file+json", HttpCharsets.`UTF-8`)
-  val `application/repository.resourceLookup+json`: MediaType.WithFixedCharset =
-    MediaType.applicationWithFixedCharset("repository.resourcelookup+json", HttpCharsets.`UTF-8`)
+
   val `application/repository.reportunit+json`: MediaType.WithFixedCharset =
     MediaType.applicationWithFixedCharset("repository.reportunit+json", HttpCharsets.`UTF-8`)
+
+  val `application/repository.jrxml+json`: MediaType.WithFixedCharset =
+    MediaType.applicationWithFixedCharset("repository.jrxml+json", HttpCharsets.`UTF-8`)
+
   val `application/repository.jdbcDataSource+json`: MediaType.WithFixedCharset =
     MediaType.applicationWithFixedCharset("repository.jdbcdatasource+json", HttpCharsets.`UTF-8`)
+
+  val `application/repository.resourceLookup+json`: MediaType.WithFixedCharset =
+    MediaType.applicationWithFixedCharset("repository.resourcelookup+json", HttpCharsets.`UTF-8`)
 
 
   def resourceMediaTypes: List[MediaType.WithFixedCharset] = List(
@@ -42,7 +52,12 @@ package object api {
   implicit def asMediaType[T <: Resource](resource: T): MediaType.WithFixedCharset = {
     resource match {
       case _: FolderResource => `application/repository.folder+json`
-      case _: FileResource => `application/repository.file+json`
+      case fr: FileResource =>
+        fr.`type` match {
+          case "reportunit" => `application/repository.reportunit+json`
+          case "jrxml" =>      `application/repository.jrxml+json`
+          case _ =>            `application/repository.file+json`
+        }
       case _ => `application/json`
     }
   }
@@ -76,6 +91,7 @@ package object api {
       case Right(r) => asHttpResponseFromResource(successCode, r)
       case Left(exception) => exception match {
         case ex: ResourceNotFoundException => asHttpResponseFromException(StatusCodes.NotFound, ex)
+        case ex: FileNotFoundException => asHttpResponseFromException(StatusCodes.NotFound, ex)
         case ex: ResourceAlreadyExistsExeption => asHttpResponseFromException(StatusCodes.BadRequest, ex)
         case _ => asHttpResponseFromException(StatusCodes.InternalServerError, exception)
       }
@@ -88,7 +104,7 @@ package object api {
 
   implicit def asHttpResponseFromException(statusCode: StatusCode, ex: Throwable): HttpResponse = {
     HttpResponse(statusCode, Nil, HttpEntity(ContentType(`application/json`), Json.obj(
-      ("exception", Json.fromString(ex.getMessage))
+      ("exception", Json.fromString(ex.toString))
     ).noSpaces))
   }
 
@@ -97,7 +113,7 @@ package object api {
       resource match {
         case r: FolderResource => r.asJson
         case r: FileResource => r.asJson
-        case r: DSJdbcResource => r.asJson
+        case r: JdbcDataSourceResource => r.asJson
         case r: ReportUnitResource => r.asJson
         case _ => resource.asJson
       }

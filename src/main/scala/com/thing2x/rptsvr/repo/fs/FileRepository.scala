@@ -2,11 +2,12 @@ package com.thing2x.rptsvr.repo.fs
 
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.{Base64, Date}
 
+import com.thing2x.rptsvr.Repository.ResourceContentResponse
 import com.thing2x.rptsvr._
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
+import com.thing2x.smqd.util.ConfigUtil._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -30,73 +31,56 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
   }
 
   override def start(): Unit = {
-    FrFolder("/").meta
+    FsFile("/").mkdir("Root")
+    FsFile("/public").mkdir("Public")
   }
 
   override def stop(): Unit = {
   }
 
-  /////////////////////////////////////////////////
-  // Folder
-  /////////////////////////////////////////////////
-
-  def createFolder(request: CreateFolderRequest): Future[Result[FolderResource]] = Future {
-    logger.debug(s"create folder: $request")
-    val fr = FrFolder(request.uri)
-    if (fr.mkdir(request.label, request.permissionMask, request.version + 1))
-      Right(fr.asResource)
-    else
-      Left(new IllegalAccessException(s"fail to create folder: ${request.uri}"))
-  }
-
-  def getFolder(uri: String): Future[Result[FolderResource]] = Future {
-    val fr = FrFolder(uri)
-    if (fr.exists)
-      Right(fr.asResource)
-    else
-      Left(new ResourceNotFoundException(uri))
-  }
-
-  def listFolder(uri: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]] = Future {
-    logger.debug(s"list folder: $uri")
-    val fr = FrFolder(uri)
+  def listFolder(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]] = Future {
+    logger.debug(s"list folder: $path")
+    val fr = FsFile(path)
     if (fr.exists)
       Right(fr.list.map(_.asResource))
     else
-      Left(new ResourceNotFoundException(uri))
+      Left(new ResourceNotFoundException(path))
   }
 
-  /////////////////////////////////////////////////
-  // File
-  /////////////////////////////////////////////////
+  def setResource(path: String, request: Config, createFolders: Boolean, overwrite: Boolean, resourceType: String): Future[Result[Resource]] = Future {
+    logger.debug(s"set resource: ${request.getOptionString(META_URI).getOrElse("<null>")}")
 
-  override def createFile(request: CreateFileRequest, createFolders: Boolean, overwrite: Boolean): Future[Result[FileResource]] = Future {
-    logger.debug(s"create file: $request")
-    // uri: String, label: String, permissionMask: Int, version: Int, `type`: String, content: String
-    val fr = FrFile(request.uri, request.`type`)
-
-    if (!fr.exists || overwrite ) {
-      val ctnt = Base64.getDecoder.decode(request.content)
-      fr.write(ctnt, Map(META_LABEL(request.label), META_PERMISSIONMASK(request.permissionMask), META_VERSION(request.version)))
+    val fr = FsFile(path)
+    if ( !fr.exists || overwrite ) {
+      fr.write(resourceType, request)
     }
-
-    fr.asResource.asInstanceOf[FileResource]
+    fr.asResource
   }
 
-  /////////////////////////////////////////////////
-  // General Resource
-  /////////////////////////////////////////////////
+  def getResource(path: String): Future[Result[Resource]] = Future {
+    try {
+      val fr = FsFile(path)
+      if (fr.exists)
+        Right(fr.asResource)
+      else
+        Left(new ResourceNotFoundException(path))
+    }
+    catch {
+      case ex: Throwable => Left(ex)
+    }
+  }
 
-  def getResource(path: String, expanded: Boolean): Future[Result[Resource]] = Future {
-    logger.debug(s"get resource: $path expanded=$expanded")
-    val fr = FrFile(path)
-    fr.asResource
+  def getContent(path: String): Future[ResourceContentResponse] = Future {
+    val fr = FsFile(path)
+
+    logger.trace(s"------------> getContent path=$path resourceType=${fr.resourceType} contentType=${fr.contentType}")
+    ResourceContentResponse(fr.uri, fr.contentFile, fr.contentType)
   }
 
   def deleteResource(path: String): Future[Boolean] = Future {
     logger.debug(s"delete resource: $path")
 
-    val file = FrFile(path)
+    val file = FsFile(path)
     file.delete()
   }
 }

@@ -1,74 +1,70 @@
 package com.thing2x.rptsvr.api
 
 import akka.http.scaladsl.model._
-import akka.stream.Materializer
-import akka.util.ByteString
+import com.thing2x.rptsvr.Repository.ResourceLookupResponse
 import com.thing2x.rptsvr._
 import com.thing2x.smqd.Smqd
+import com.typesafe.config.{Config, ConfigRenderOptions}
 import com.typesafe.scalalogging.StrictLogging
+import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
-import io.circe.{Json, parser}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object ResourceHandler {
-  def findRepositoryInstance(smqd: Smqd): Repository = {
-    val repositoryClass = classOf[Repository]
-    smqd.pluginManager.pluginDefinitions.find{ pd =>
-      repositoryClass.isAssignableFrom(pd.clazz)
-    }.map(_.instances.head.instance.asInstanceOf[Repository]).get
-  }
-}
-
 class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) extends StrictLogging {
 
-  private val repo = ResourceHandler.findRepositoryInstance(smqd)
+  private val repo = Repository.findInstance(smqd)
 
-  def lookupResource(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[HttpResponse] =
+  def lookupResource(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[HttpResponse] = {
+    logger.debug(s"lookup resource >> $path recursive=$recursive sortBy=$sortBy limit=$limit")
+
     repo.listFolder(path, recursive, sortBy, limit).map {
       case Right(list) =>
         val result = ResourceLookupResponse(list)
         (StatusCodes.OK, result.asJson)
       case Left(ex) =>
+        logger.warn(s"lookupResource failure: $path ", ex)
         (StatusCodes.InternalServerError, ex)
-    }
-
-  def getResource(path: String, expanded: Boolean, accept: MediaType): Future[HttpResponse] = {
-    logger.debug(s"get resource >> $path expanded=$expanded accept=$accept")
-    accept match {
-      case `application/repository.folder+json` =>
-        repo.getFolder(path).map( (StatusCodes.OK, _) )
-      case `application/repository.resourceLookup+json` =>
-        repo.getResource(path, expanded).map( (StatusCodes.OK, _) )
-      case _ =>
-        repo.getResource(path, expanded).map( (StatusCodes.OK, _) )
     }
   }
 
-  def createResource(path: String, content: RequestEntity, createFolders: Boolean, overwrite: Boolean)
-                    (implicit materializr: Materializer): Future[HttpResponse] = {
-    content.dataBytes.runFold(ByteString.empty)( _ ++ _ ).map { bstr =>
-      logger.debug(s"create resource >> ${bstr.utf8String}")
-      parser.parse(bstr.utf8String).right.get
-    }.flatMap{ json =>
-      content.contentType.mediaType match {
-        case `application/repository.folder+json` =>
-          val req = json.as[CreateFolderRequest].right.get
-          repo.createFolder(req).map( (StatusCodes.Created, _) )
+  def getResource(path: String, accept: MediaType, expanded: Option[Boolean]): Future[HttpResponse] = {
+    logger.debug(s"get resource >> $path expanded=$expanded accept=$accept")
+    accept match {
+      case `application/repository.resourceLookup+json` =>
+        repo.getResource(path).map( (StatusCodes.OK, _) )
+      case `application/repository.folder+json` =>
+        repo.getResource(path).map( (StatusCodes.OK, _) )
+      case `application/repository.file+json` =>
+        if (expanded.isDefined) {
+          repo.getResource(path).map( (StatusCodes.OK, _) )
+        }
+        else {
+          repo.getContent(path).map(cr => HttpResponse(StatusCodes.OK, Nil, HttpEntity.fromFile(cr.contentType, cr.file)))
+        }
+      case _ =>
+        if (expanded.isDefined) {
+          repo.getResource(path).map( (StatusCodes.OK, _) )
+        }
+        else {
+          repo.getContent(path).map(cr => HttpResponse(StatusCodes.OK, Nil, HttpEntity.fromFile(cr.contentType, cr.file)))
+        }
+    }
+  }
 
-        case `application/repository.file+json` =>
-          val req = json.as[CreateFileRequest].right.get
-          repo.createFile(req, createFolders, overwrite).map( (StatusCodes.Created, _) )
-
-//        case `application/repository.jdbcDataSource+json` =>
-//          val ds = json.as[DSJdbcResource].right.get
-//          storeResource(path, ds, createFolders, overwrite).map( (StatusCodes.OK, _) )
-
-        case ct =>
-          Future{
-            (StatusCodes.BadRequest, Json.obj(("error", Json.fromString(s"Unhandled content type: $ct"))))
-          }
+  def setResource(path: String, contentType: ContentType, body: Config, createFolders: Boolean, overwrite: Boolean): Future[HttpResponse] = {
+    logger.trace(s"write resource >> $path ${contentType.toString} ${body.root.render(ConfigRenderOptions.concise)}")
+    val mediaType = contentType.mediaType
+    val subType = mediaType.subType
+    if (mediaType.isApplication && subType.startsWith("repository.") && subType.endsWith("+json")) {
+      val resourceType = subType.substring("repository.".length, subType.lastIndexOf("+json"))
+      repo.setResource(path, body, createFolders, overwrite, resourceType).map( (StatusCodes.Created, _) )
+    }
+    else {
+      Future{
+        logger.error(s"Unhandled content type: ${contentType.toString}")
+        (StatusCodes.BadRequest, Json.obj(("error", Json.fromString(s"Unhandled content type: $contentType"))))
       }
     }
   }

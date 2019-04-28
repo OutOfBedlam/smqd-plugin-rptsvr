@@ -1,10 +1,11 @@
 package com.thing2x.rptsvr.api
 
-import akka.http.scaladsl.model.MediaType
+import akka.http.scaladsl.model.{ContentType, MediaType, MediaTypes}
 import akka.http.scaladsl.server.{Directives, Route}
 import com.thing2x.smqd.net.http.HttpServiceContext
 import com.thing2x.smqd.rest.RestController
 import com.thing2x.smqd.util.FailFastCirceSupport
+import com.thing2x.smqd.util.ConfigUtil._
 
 class RestV2Controller(name: String, context: HttpServiceContext) extends RestController(name, context)
   with Directives with FailFastCirceSupport {
@@ -36,10 +37,12 @@ class RestV2Controller(name: String, context: HttpServiceContext) extends RestCo
       val uri = path.mkString("/", "/", "")
 
       (get & parameters('expanded.as[Boolean].?) & headerValueByName("Accept")) { (expanded, accept) =>
-        complete(resourceHandler.getResource(uri, expanded.getOrElse(false), mediaTypeFromString(accept)))
+        complete(resourceHandler.getResource(uri, mediaTypeFromString(accept), expanded))
       } ~
       (post & parameters('createFolders.as[Boolean], 'overwrite.as[Boolean]) & extract(_.request.entity)) { (createFolders, overwrite, content) =>
-        complete(resourceHandler.createResource(uri, content, createFolders, overwrite))
+        entity(as[com.typesafe.config.Config]) { body =>
+          complete(resourceHandler.setResource(uri, content.contentType, body, createFolders, overwrite))
+        }
       } ~
       delete {
         complete(resourceHandler.deleteResource(uri))

@@ -1,0 +1,14 @@
+<configuration>
+    <appender name="consoleAppender" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date{HH:mm:ss.SSS} %-5level %magenta(%-40logger{40}) %msg%n%xException</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="consoleAppender"/>
+    </root>
+
+    <logger name="com.thing2x.rptsvr" level="TRACE"/>
+    <logger name="net.sf.jasperreports" level="DEBUG"/>
+</configuration>
