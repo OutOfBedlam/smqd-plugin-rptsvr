@@ -80,7 +80,9 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Strict
     FsFile.mimeTypeOf(typ, name)
   }
 
-  def asResource: Resource = {
+  def asResource: Resource = asResource(true)
+
+  def asResource(expanded: Boolean): Resource = {
     resourceType match {
       case "folder" =>
         FolderResource(

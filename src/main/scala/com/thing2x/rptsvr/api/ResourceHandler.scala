@@ -48,21 +48,13 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
   }
 
   def getResource(path: String, accept: MediaType, expanded: Option[Boolean]): Future[HttpResponse] = {
-    logger.debug(s"get resource >> $path expanded=$expanded accept=$accept")
-    accept match {
-      case `application/repository.resourceLookup+json` =>
-        repo.getResource(path).map( (StatusCodes.OK, _) )
-      case `application/repository.folder+json` =>
-        repo.getResource(path).map( (StatusCodes.OK, _) )
-      case `application/repository.file+json` =>
-        repo.getResource(path).map( (StatusCodes.OK, _) )
-      case _ => // application/json
-        if (expanded.isDefined) {
-          repo.getResource(path).map( (StatusCodes.OK, _) )
-        }
-        else {
-          repo.getContent(path).map(cr => HttpResponse(StatusCodes.OK, Nil, HttpEntity.fromFile(cr.contentType, cr.file)))
-        }
+    if (expanded.isDefined) {
+      logger.debug(s"get resource >> $path accept=$accept expanded=${expanded.get}")
+      repo.getResource(path, expanded.get).map( (StatusCodes.OK, _) )
+    }
+    else {
+      logger.debug(s"get content  >> $path accept=$accept")
+      repo.getContent(path).map(cr => HttpResponse(StatusCodes.OK, Nil, HttpEntity.fromFile(cr.contentType, cr.file)))
     }
   }
 

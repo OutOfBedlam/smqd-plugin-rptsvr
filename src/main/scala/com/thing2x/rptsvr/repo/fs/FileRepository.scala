@@ -41,7 +41,7 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
     logger.debug(s"list folder: $path")
     val fr = FsFile(path)
     if (fr.exists)
-      Right(fr.list.map(_.asResource))
+      Right(fr.list.map(_.asResource(true)))
     else
       Left(new ResourceNotFoundException(path))
   }
@@ -53,14 +53,14 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
     if ( !fr.exists || overwrite ) {
       fr.write(resourceType, request)
     }
-    fr.asResource
+    fr.asResource(true)
   }
 
-  def getResource(path: String): Future[Result[Resource]] = Future {
+  def getResource(path: String, expanded: Boolean): Future[Result[Resource]] = Future {
     try {
       val fr = FsFile(path)
       if (fr.exists)
-        Right(fr.asResource)
+        Right(fr.asResource(expanded))
       else
         Left(new ResourceNotFoundException(path))
     }
