@@ -2,11 +2,11 @@ package com.thing2x.rptsvr
 
 import java.io.FileNotFoundException
 
-import akka.http.scaladsl.model.{ContentType, HttpCharsets, HttpEntity, HttpResponse, MediaType, ResponseEntity, StatusCode, StatusCodes}
+import akka.http.scaladsl.model._
 import com.thing2x.rptsvr.api.ResourceHandler.ResourceError
+import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
-import io.circe.{Encoder, Json}
 
 import scala.language.implicitConversions
 
@@ -83,13 +83,13 @@ package object api {
     HttpResponse(statusCode, Nil, HttpEntity(ContentType(`application/json`), json.noSpaces))
   }
 
-  implicit def asHttpResponseFromResult[T <: Resource](tup: (StatusCode, Result[T])): HttpResponse = {
-    asHttpResponseFromResult(tup._1, tup._2)
+  implicit def asHttpResponseFromResult[T <: Resource](tup: (StatusCode, Result[T], Boolean)): HttpResponse = {
+    asHttpResponseFromResult(tup._1, tup._2, tup._3)
   }
 
-  implicit def asHttpResponseFromResult[T <: Resource](successCode: StatusCode, result: Result[T]): HttpResponse = {
+  implicit def asHttpResponseFromResult[T <: Resource](successCode: StatusCode, result: Result[T], expanded: Boolean): HttpResponse = {
     result match {
-      case Right(r) => asHttpResponseFromResource(successCode, r)
+      case Right(r) => HttpResponse(successCode, Nil, HttpEntity(ContentType(r), r.asJson(expanded).noSpaces))
       case Left(exception) => exception match {
         case _: ResourceNotFoundException => asHttpResponseFromResourceError(StatusCodes.NotFound, ResourceError("Resource not found.", "resource.not.found", Seq.empty))
         case ex: FileNotFoundException => asHttpResponseFromResourceError(StatusCodes.NotFound, ResourceError("Resource not found.", "resource.not.found", Seq.empty))
@@ -111,17 +111,5 @@ package object api {
 
   implicit def asHttpResponseFromResourceError(statusCode: StatusCode, err: ResourceError): HttpResponse = {
     HttpResponse(statusCode, Nil, HttpEntity(ContentType(`application/json`), err.asJson.noSpaces))
-  }
-
-  implicit val resourceEncoder: Encoder[Resource] = new Encoder[Resource] {
-    override def apply(resource: Resource): Json = {
-      resource match {
-        case r: FolderResource => r.asJson
-        case r: FileResource => r.asJson
-        case r: JdbcDataSourceResource => r.asJson
-        case r: ReportUnitResource => r.asJson
-        case _ => resource.asJson
-      }
-    }
   }
 }

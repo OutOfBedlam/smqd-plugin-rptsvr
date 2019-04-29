@@ -5,7 +5,7 @@ import java.util.{Base64, Date}
 
 import akka.http.scaladsl.model.MediaType.{Compressible, NotCompressible}
 import akka.http.scaladsl.model.{ContentType, HttpCharsets, MediaType, MediaTypes}
-import com.thing2x.rptsvr.{FileResource, FolderResource, JrxmlFile, JrxmlResource, JrxmlResourceFile, JrxmlResources, ReportUnitResource, Resource}
+import com.thing2x.rptsvr._
 import com.thing2x.smqd.util.ConfigUtil._
 import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import com.typesafe.scalalogging.StrictLogging
@@ -80,12 +80,10 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Strict
     FsFile.mimeTypeOf(typ, name)
   }
 
-  def asResource: Resource = asResource(true)
-
-  def asResource(expanded: Boolean): Resource = {
+  def asResource: Resource = {
     resourceType match {
       case "folder" =>
-        FolderResource(
+        new FolderResource(
           meta.getString(META_URI),
           meta.getString(META_LABEL),
           meta.getInt(META_PERMISSIONMASK),
@@ -95,7 +93,7 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Strict
           context.datetimeFormat.format(new Date(meta.getLong(META_UPDATETIME))),
         )
       case "file" =>
-        FileResource(
+        new FileResource(
           meta.getString(META_URI),
           meta.getString(META_LABEL),
           meta.getInt(META_PERMISSIONMASK),
@@ -106,14 +104,14 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Strict
           meta.getString(META_FILETYPE)
         )
       case "reportunit" =>
-        val jrxml = FsFile(meta.getString("jrxml.jrxmlFile.uri")).asResource
+        val jrxml = FsFile(meta.getString("jrxml.jrxmlFile.uri")).asResource.asInstanceOf[FileResource]
         val resources = meta.getConfigList("resources.resource").asScala.map { c =>
           val name = c.getString("name")
-          val file = FsFile(c.getString("file.fileResource.uri")).asResource
-          JrxmlResource(name, JrxmlResourceFile(file))
-        }
+          val file = FsFile(c.getString("file.fileResource.uri")).asResource.asInstanceOf[FileResource]
+          (name, file)
+        }.toMap
 
-        ReportUnitResource(
+        val ru = new ReportUnitResource(
           meta.getString(META_URI),
           meta.getString(META_LABEL),
           meta.getInt(META_PERMISSIONMASK),
@@ -121,12 +119,12 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Strict
           meta.getInt(META_VERSION),
           context.datetimeFormat.format(new Date(meta.getLong(META_CREATIONTIME))),
           context.datetimeFormat.format(new Date(meta.getLong(META_UPDATETIME))),
-          Seq.empty,
-          meta.getBoolean(META_ALWAYSPROMPTCONTROLS),
-          meta.getString(META_CONTROLRAYOUT),
-          JrxmlFile(jrxml),
-          JrxmlResources(resources)
         )
+        ru.alwaysPromptControls = meta.getBoolean(META_ALWAYSPROMPTCONTROLS)
+        ru.controlsLayout = meta.getString(META_CONTROLRAYOUT)
+        ru.jrxml = Some(jrxml)
+        ru.resources = resources
+        ru
       case "jndiDataSource" => ???
       case "jdbcDataSource" => ???
       case "awsDataSource" => ???

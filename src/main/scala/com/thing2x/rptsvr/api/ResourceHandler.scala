@@ -2,32 +2,16 @@ package com.thing2x.rptsvr.api
 
 import akka.http.scaladsl.model._
 import com.thing2x.rptsvr._
-import com.thing2x.rptsvr.api.ResourceHandler._
 import com.thing2x.smqd.Smqd
 import com.typesafe.config.{Config, ConfigRenderOptions}
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
-import io.circe.generic.auto._
 import io.circe.syntax._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object ResourceHandler {
-
-  case class ResourceLookupItem(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String, resourceType: String)
-  case class ResourceLookupResponse(resourceLookup: Seq[ResourceLookupItem])
-
   case class ResourceError(message: String, errorCode: String, parameters: Seq[String])
-
-  def resourceTypeOf(r: Resource): String = r match {
-    case _: FolderResource => "folder"
-    case _: FileResource => "file"
-    case _: ReportUnitResource =>"reportUnit"
-    case _ => "file"
-  }
-
-  def resourceToLookupItem(r: Resource): ResourceLookupItem =
-    ResourceLookupItem(r.uri, r.label, r.permissionMask, r.description, r.version, r.creationDate, r.updateDate, resourceTypeOf(r))
 }
 
 class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) extends StrictLogging {
@@ -39,8 +23,8 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
 
     repo.listFolder(path, recursive, sortBy, limit).map {
       case Right(list) =>
-        val result = list.map( r => resourceToLookupItem( r ) )
-        (StatusCodes.OK, ResourceLookupResponse(result).asJson)
+        val result = list.map( r => r.asLookupResult )
+        (StatusCodes.OK, Json.obj("resourceLookup" -> result.asJson))
       case Left(ex) =>
         logger.warn(s"lookupResource failure: $path ", ex)
         (StatusCodes.InternalServerError, ex)
@@ -50,7 +34,7 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
   def getResource(path: String, accept: MediaType, expanded: Option[Boolean]): Future[HttpResponse] = {
     if (expanded.isDefined) {
       logger.debug(s"get resource >> $path accept=$accept expanded=${expanded.get}")
-      repo.getResource(path, expanded.get).map( (StatusCodes.OK, _) )
+      repo.getResource(path).map( (StatusCodes.OK, _, expanded.get) )
     }
     else {
       logger.debug(s"get content  >> $path accept=$accept")
@@ -65,7 +49,7 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
     if (mediaType.isApplication && subType.startsWith("repository.") && subType.endsWith("+json")) {
       val resourceType = subType.substring("repository.".length, subType.lastIndexOf("+json"))
       logger.trace(s"                  resourceType='$resourceType'")
-      repo.setResource(path, body, createFolders, overwrite, resourceType).map( (StatusCodes.Created, _) )
+      repo.setResource(path, body, createFolders, overwrite, resourceType).map( (StatusCodes.Created, _, true) )
     }
     else {
       Future{
