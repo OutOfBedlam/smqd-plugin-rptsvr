@@ -1,5 +1,9 @@
 package com.thing2x.rptsvr
 
+import java.io.File
+
+import akka.http.scaladsl.model.ContentType
+
 sealed trait Resource {
   val uri: String
   val label: String
@@ -10,9 +14,11 @@ sealed trait Resource {
   val updateDate: String
 }
 
-case class FolderResource(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String, resourceType: String) extends Resource
+case class FolderResource(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String) extends Resource
 
 case class FileResource(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String, `type`: String) extends Resource
+
+case class FileContent(uri: String, file: File, contentType: ContentType)
 
 case class JndiDataSourceResource(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String, `type`: String,
                                   jndiName: String, timezone: String) extends Resource

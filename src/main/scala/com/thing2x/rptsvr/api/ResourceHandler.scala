@@ -1,8 +1,8 @@
 package com.thing2x.rptsvr.api
 
 import akka.http.scaladsl.model._
-import com.thing2x.rptsvr.Repository.ResourceLookupResponse
 import com.thing2x.rptsvr._
+import com.thing2x.rptsvr.api.ResourceHandler._
 import com.thing2x.smqd.Smqd
 import com.typesafe.config.{Config, ConfigRenderOptions}
 import com.typesafe.scalalogging.StrictLogging
@@ -11,6 +11,12 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 
 import scala.concurrent.{ExecutionContext, Future}
+
+object ResourceHandler {
+
+  case class ResourceLookupItem(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String, resourceType: String)
+  case class ResourceLookupResponse(resourceLookup: Seq[ResourceLookupItem])
+}
 
 class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) extends StrictLogging {
 
@@ -21,8 +27,15 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
 
     repo.listFolder(path, recursive, sortBy, limit).map {
       case Right(list) =>
-        val result = ResourceLookupResponse(list)
-        (StatusCodes.OK, result.asJson)
+        val result = list.map{
+          case r: FolderResource =>
+            ResourceLookupItem(r.uri, r.label, r.permissionMask, r.description, r.version, r.creationDate, r.updateDate, "folder")
+          case r: FileResource =>
+            ResourceLookupItem(r.uri, r.label, r.permissionMask, r.description, r.version, r.creationDate, r.updateDate, "file")
+          case r =>
+            ResourceLookupItem(r.uri, r.label, r.permissionMask, r.description, r.version, r.creationDate, r.updateDate, "file")
+        }
+        (StatusCodes.OK, ResourceLookupResponse(result).asJson)
       case Left(ex) =>
         logger.warn(s"lookupResource failure: $path ", ex)
         (StatusCodes.InternalServerError, ex)

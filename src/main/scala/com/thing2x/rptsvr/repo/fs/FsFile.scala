@@ -90,7 +90,6 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) {
           meta.getInt(META_VERSION),
           context.datetimeFormat.format(new Date(meta.getLong(META_CREATIONTIME))),
           context.datetimeFormat.format(new Date(meta.getLong(META_UPDATETIME))),
-          "folder"
         )
       case "file" =>
         FileResource(
@@ -101,7 +100,6 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) {
           meta.getInt(META_VERSION),
           context.datetimeFormat.format(new Date(meta.getLong(META_CREATIONTIME))),
           context.datetimeFormat.format(new Date(meta.getLong(META_UPDATETIME))),
-          //"file",
           meta.getString(META_FILETYPE)
         )
       case "reportunit" =>

@@ -3,7 +3,6 @@ package com.thing2x.rptsvr.repo.fs
 import java.io.File
 import java.text.SimpleDateFormat
 
-import com.thing2x.rptsvr.Repository.ResourceContentResponse
 import com.thing2x.rptsvr._
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
@@ -70,11 +69,11 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
     }
   }
 
-  def getContent(path: String): Future[ResourceContentResponse] = Future {
+  def getContent(path: String): Future[FileContent] = Future {
     val fr = FsFile(path)
 
     logger.trace(s"------------> getContent path=$path resourceType=${fr.resourceType} contentType=${fr.contentType}")
-    ResourceContentResponse(fr.uri, fr.contentFile, fr.contentType)
+    FileContent(fr.uri, fr.contentFile, fr.contentType)
   }
 
   def deleteResource(path: String): Future[Boolean] = Future {

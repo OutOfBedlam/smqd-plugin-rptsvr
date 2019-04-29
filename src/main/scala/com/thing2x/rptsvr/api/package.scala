@@ -56,7 +56,7 @@ package object api {
         fr.`type` match {
           case "reportunit" => `application/repository.reportunit+json`
           case "jrxml" =>      `application/repository.jrxml+json`
-          case _ =>            `application/repository.file+json`
+          case _ =>            `application/json`
         }
       case _ => `application/json`
     }
