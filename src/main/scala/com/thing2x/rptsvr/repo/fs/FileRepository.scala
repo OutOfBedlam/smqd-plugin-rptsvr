@@ -26,7 +26,7 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
 
     val dateFormat = new SimpleDateFormat(config.getString("formats.date"))
     val datetimeFormat = new SimpleDateFormat(config.getString("formats.datetime"))
-    new FileRepositoryContext(root, dateFormat, datetimeFormat)
+    new FileRepositoryContext(this, smqd.Implicit.gloablDispatcher, root, dateFormat, datetimeFormat)
   }
 
   override val context: RepositoryContext = fsContext

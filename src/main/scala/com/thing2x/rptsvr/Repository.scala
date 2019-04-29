@@ -5,7 +5,7 @@ import java.text.SimpleDateFormat
 import com.thing2x.smqd.Smqd
 import com.typesafe.config.Config
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object Repository {
   def findInstance(smqd: Smqd): Repository = {
@@ -32,6 +32,8 @@ trait Repository {
 trait RepositoryContext {
   val dateFormat: SimpleDateFormat
   val datetimeFormat: SimpleDateFormat
+  val repository: Repository
+  val executionContext: ExecutionContext
 }
 
 class RepositoryException extends Exception

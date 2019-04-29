@@ -8,6 +8,9 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe.syntax._
 import io.circe.{ACursor, DecodingFailure, HCursor, Json}
 
+import scala.concurrent.ExecutionContext
+import scala.util.Success
+
 object Resource extends StrictLogging {
 
   def apply(json: Json)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
@@ -23,7 +26,7 @@ object Resource extends StrictLogging {
       val uri = cur.downField("uri").as[String].right.get
       val label = cur.downField("label").as[String].right.get
       val ver = cur.downField("version").as[Option[Int]].right.get
-      val permissionMask = cur.downField("version").as[Option[Int]].right.get
+      val permissionMask = cur.downField("permissionMask").as[Option[Int]].right.get
       val creationTime = cur.downField("creationTime").as[Option[Long]].right.get
       val updateTime = cur.downField("updateTime").as[Option[Long]].right.get
       val description = cur.downField("description").as[Option[String]].right.get
@@ -54,7 +57,7 @@ object Resource extends StrictLogging {
   }
 }
 
-abstract class Resource {
+abstract class Resource extends StrictLogging {
   //////////////////////////////
   // common attributes
   val uri: String
@@ -74,6 +77,9 @@ abstract class Resource {
   //////////////////////////////
   // lookup resources
   val resourceType: String
+
+  // write only field
+  var content: Option[String] = None
 
   //////////////////////////////
   // asJson
@@ -141,6 +147,10 @@ class FileResource(val uri: String, val label: String) extends Resource {
 
   override def decodeFields(cur: ACursor)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
     fileType = cur.downField("type").as[String].right.get
+    cur.downField("content").as[String] match {
+      case Right(data) => content = Some(data)
+      case _ => content = None
+    }
     Right(this)
   }
 }
@@ -194,14 +204,26 @@ class ReportUnitResource(val uri: String, val label: String) extends Resource {
     val jrxmlFileCur = jcur.downField("jrxmlFile")
 
     if (jrxmlRefCur.succeeded) {
-      println("========+> Reference..............................")
+      val ref = jrxmlRefCur.downField("uri").as[String]
+      if (ref.isRight){
+        val path = ref.right.get
+        implicit val ec: ExecutionContext = context.executionContext
+        context.repository.getResource(path).onComplete {
+          case Success(r) =>
+            jrxml = Some(r.asInstanceOf[FileResource])
+          case _ =>
+            logger.error(s"Jrxml reference loading failure: $path referenced in $uri")
+            throw new ResourceNotFoundException(path)
+        }
+      }
     }
     else if (jrxmlFileCur.succeeded) {
       Resource(jrxmlFileCur) match {
         case Right(r) if r.isInstanceOf[FileResource] => jrxml = Some(r.asInstanceOf[FileResource])
-        case _ => jrxml = None
+        case _ =>
+          logger.error(s"Jrxml File loading failure $uri")
+          jrxml = None
       }
-      println(s"========+> File................................: $jrxml")
     }
 
     var resourceCur = cur.downField("resources").downField("resource").downArray
@@ -213,18 +235,25 @@ class ReportUnitResource(val uri: String, val label: String) extends Resource {
       val fileRefCur = filePos.downField("fileReference")
       val fileRscCur = filePos.downField("fileResource")
       if (fileRefCur.succeeded) {
-        println(s"===================> Resource $name --> ${fileRefCur.downField("uri")}")
-        None
-      }
-      else if (fileRscCur.succeeded) {
-        println(s"===================> Resource $name --> ${fileRscCur.downField("uri")}")
-        Resource(fileRscCur) match {
-          case Right(r) if r.isInstanceOf[FileResource] => resourceMap ++= Map(name -> r.asInstanceOf[FileResource])
-          case _ => None
+        val ref = fileRefCur.downField("uri").as[String]
+        if (ref.isRight){
+          val path = ref.right.get
+          implicit val ec: ExecutionContext = context.executionContext
+          context.repository.getResource(path).onComplete {
+            case Success(r) =>
+              resourceMap ++= Map(name -> r.asInstanceOf[FileResource])
+            case _ =>
+              logger.error(s"Resource reference loading failure: $path referenced in $uri")
+              throw new ResourceNotFoundException(path)
+          }
         }
       }
-      else {
-        None
+      else if (fileRscCur.succeeded) {
+        Resource(fileRscCur) match {
+          case Right(r) if r.isInstanceOf[FileResource] => resourceMap ++= Map(name -> r.asInstanceOf[FileResource])
+          case _ =>
+            logger.error(s"Resource reference loading failure in $uri")
+        }
       }
 
       resourceCur = resourceCur.right
