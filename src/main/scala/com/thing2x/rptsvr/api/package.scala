@@ -3,6 +3,7 @@ package com.thing2x.rptsvr
 import java.io.FileNotFoundException
 
 import akka.http.scaladsl.model.{ContentType, HttpCharsets, HttpEntity, HttpResponse, MediaType, ResponseEntity, StatusCode, StatusCodes}
+import com.thing2x.rptsvr.api.ResourceHandler.ResourceError
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Encoder, Json}
@@ -90,8 +91,8 @@ package object api {
     result match {
       case Right(r) => asHttpResponseFromResource(successCode, r)
       case Left(exception) => exception match {
-        case ex: ResourceNotFoundException => asHttpResponseFromException(StatusCodes.NotFound, ex)
-        case ex: FileNotFoundException => asHttpResponseFromException(StatusCodes.NotFound, ex)
+        case _: ResourceNotFoundException => asHttpResponseFromResourceError(StatusCodes.NotFound, ResourceError("Resource not found.", "resource.not.found", Seq.empty))
+        case ex: FileNotFoundException => asHttpResponseFromResourceError(StatusCodes.NotFound, ResourceError("Resource not found.", "resource.not.found", Seq.empty))
         case ex: ResourceAlreadyExistsExeption => asHttpResponseFromException(StatusCodes.BadRequest, ex)
         case _ => asHttpResponseFromException(StatusCodes.InternalServerError, exception)
       }
@@ -106,6 +107,10 @@ package object api {
     HttpResponse(statusCode, Nil, HttpEntity(ContentType(`application/json`), Json.obj(
       ("exception", Json.fromString(ex.toString))
     ).noSpaces))
+  }
+
+  implicit def asHttpResponseFromResourceError(statusCode: StatusCode, err: ResourceError): HttpResponse = {
+    HttpResponse(statusCode, Nil, HttpEntity(ContentType(`application/json`), err.asJson.noSpaces))
   }
 
   implicit val resourceEncoder: Encoder[Resource] = new Encoder[Resource] {

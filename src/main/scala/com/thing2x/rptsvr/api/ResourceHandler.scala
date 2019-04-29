@@ -16,6 +16,8 @@ object ResourceHandler {
 
   case class ResourceLookupItem(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String, resourceType: String)
   case class ResourceLookupResponse(resourceLookup: Seq[ResourceLookupItem])
+
+  case class ResourceError(message: String, errorCode: String, parameters: Seq[String])
 }
 
 class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) extends StrictLogging {
@@ -50,13 +52,8 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
       case `application/repository.folder+json` =>
         repo.getResource(path).map( (StatusCodes.OK, _) )
       case `application/repository.file+json` =>
-        if (expanded.isDefined) {
-          repo.getResource(path).map( (StatusCodes.OK, _) )
-        }
-        else {
-          repo.getContent(path).map(cr => HttpResponse(StatusCodes.OK, Nil, HttpEntity.fromFile(cr.contentType, cr.file)))
-        }
-      case _ =>
+        repo.getResource(path).map( (StatusCodes.OK, _) )
+      case _ => // application/json
         if (expanded.isDefined) {
           repo.getResource(path).map( (StatusCodes.OK, _) )
         }
