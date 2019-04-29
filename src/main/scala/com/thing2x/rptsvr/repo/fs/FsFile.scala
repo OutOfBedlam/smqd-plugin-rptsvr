@@ -11,6 +11,7 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.JavaConverters._
+import scala.io.Source
 import scala.language.implicitConversions
 
 object FsFile {
@@ -81,58 +82,10 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Strict
   }
 
   def asResource: Resource = {
-    resourceType match {
-      case "folder" =>
-        new FolderResource(
-          meta.getString(META_URI),
-          meta.getString(META_LABEL),
-          meta.getInt(META_PERMISSIONMASK),
-          meta.getOptionString(META_DESCRIPTION),
-          meta.getInt(META_VERSION),
-          context.datetimeFormat.format(new Date(meta.getLong(META_CREATIONTIME))),
-          context.datetimeFormat.format(new Date(meta.getLong(META_UPDATETIME))),
-        )
-      case "file" =>
-        new FileResource(
-          meta.getString(META_URI),
-          meta.getString(META_LABEL),
-          meta.getInt(META_PERMISSIONMASK),
-          meta.getOptionString(META_DESCRIPTION),
-          meta.getInt(META_VERSION),
-          context.datetimeFormat.format(new Date(meta.getLong(META_CREATIONTIME))),
-          context.datetimeFormat.format(new Date(meta.getLong(META_UPDATETIME))),
-          meta.getString(META_FILETYPE)
-        )
-      case "reportunit" =>
-        val jrxml = FsFile(meta.getString("jrxml.jrxmlFile.uri")).asResource.asInstanceOf[FileResource]
-        val resources = meta.getConfigList("resources.resource").asScala.map { c =>
-          val name = c.getString("name")
-          val file = FsFile(c.getString("file.fileResource.uri")).asResource.asInstanceOf[FileResource]
-          (name, file)
-        }.toMap
-
-        val ru = new ReportUnitResource(
-          meta.getString(META_URI),
-          meta.getString(META_LABEL),
-          meta.getInt(META_PERMISSIONMASK),
-          meta.getOptionString(META_DESCRIPTION),
-          meta.getInt(META_VERSION),
-          context.datetimeFormat.format(new Date(meta.getLong(META_CREATIONTIME))),
-          context.datetimeFormat.format(new Date(meta.getLong(META_UPDATETIME))),
-        )
-        ru.alwaysPromptControls = meta.getBoolean(META_ALWAYSPROMPTCONTROLS)
-        ru.controlsLayout = meta.getString(META_CONTROLRAYOUT)
-        ru.jrxml = Some(jrxml)
-        ru.resources = resources
-        ru
-      case "jndiDataSource" => ???
-      case "jdbcDataSource" => ???
-      case "awsDataSource" => ???
-      case "virtualDataSource" => ???
-      case "beanDataSource" => ???
-      case "dataType" => ???
-      case "query" => ???
-    }
+    val src = Source.fromFile(metaFile, "utf-8")
+    val rsc = Resource(io.circe.parser.parse(src.mkString).right.get)
+    src.close()
+    rsc.right.get
   }
 
   // since resourceType comes from Content-type header, it consists of all lower case letters

@@ -18,6 +18,8 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
 
   private val repo = Repository.findInstance(smqd)
 
+  private implicit val repoContext: RepositoryContext = repo.context
+
   def lookupResource(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[HttpResponse] = {
     logger.debug(s"lookup resource >> $path recursive=$recursive sortBy=$sortBy limit=$limit")
 

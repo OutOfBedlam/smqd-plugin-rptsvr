@@ -1,5 +1,7 @@
 package com.thing2x.rptsvr
 
+import java.text.SimpleDateFormat
+
 import com.thing2x.smqd.Smqd
 import com.typesafe.config.Config
 
@@ -15,6 +17,7 @@ object Repository {
 }
 
 trait Repository {
+  val context: RepositoryContext
   def listFolder(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]]
 
   def setResource(path: String, request: Config, createFolders: Boolean, overwrite: Boolean, resourceType: String): Future[Result[Resource]]
@@ -24,6 +27,11 @@ trait Repository {
   def getContent(path: String): Future[FileContent]
 
   def deleteResource(path: String): Future[Boolean]
+}
+
+trait RepositoryContext {
+  val dateFormat: SimpleDateFormat
+  val datetimeFormat: SimpleDateFormat
 }
 
 class RepositoryException extends Exception

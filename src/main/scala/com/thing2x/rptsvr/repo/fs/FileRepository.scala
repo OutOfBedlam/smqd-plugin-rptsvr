@@ -17,7 +17,7 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
 
   import smqd.Implicit.gloablDispatcher
 
-  private implicit val context: FileRepositoryContext = {
+  private implicit val fsContext: FileRepositoryContext = {
     val root = new File(config.getString("basedir"))
 
     if (!root.canRead || !root.canWrite || !root.isDirectory) {
@@ -28,6 +28,8 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
     val datetimeFormat = new SimpleDateFormat(config.getString("formats.datetime"))
     new FileRepositoryContext(root, dateFormat, datetimeFormat)
   }
+
+  override val context: RepositoryContext = fsContext
 
   override def start(): Unit = {
     FsFile("/").mkdir("Root")

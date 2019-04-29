@@ -54,7 +54,7 @@ package object api {
     resource match {
       case _: FolderResource => `application/repository.folder+json`
       case fr: FileResource =>
-        fr.`type` match {
+        fr.fileType match {
           case "reportunit" => `application/repository.reportunit+json`
           case "jrxml" =>      `application/repository.jrxml+json`
           case _ =>            `application/json`
@@ -63,15 +63,15 @@ package object api {
     }
   }
 
-  implicit def asResponseEntity(resource: Resource): ResponseEntity = {
+  implicit def asResponseEntity(resource: Resource)(implicit context: RepositoryContext): ResponseEntity = {
     HttpEntity(ContentType(resource), resource.asJson.noSpaces)
   }
 
-  implicit def asHttpResponseFromResource(tup: (StatusCode, Resource)): HttpResponse = {
+  implicit def asHttpResponseFromResource(tup: (StatusCode, Resource))(implicit context: RepositoryContext): HttpResponse = {
     asHttpResponseFromResource(tup._1, tup._2)
   }
 
-  implicit def asHttpResponseFromResource(statusCode: StatusCode, resource: Resource): HttpResponse = {
+  implicit def asHttpResponseFromResource(statusCode: StatusCode, resource: Resource)(implicit context: RepositoryContext): HttpResponse = {
     HttpResponse(statusCode, Nil, asResponseEntity(resource))
   }
 
@@ -83,11 +83,11 @@ package object api {
     HttpResponse(statusCode, Nil, HttpEntity(ContentType(`application/json`), json.noSpaces))
   }
 
-  implicit def asHttpResponseFromResult[T <: Resource](tup: (StatusCode, Result[T], Boolean)): HttpResponse = {
+  implicit def asHttpResponseFromResult[T <: Resource](tup: (StatusCode, Result[T], Boolean))(implicit context: RepositoryContext): HttpResponse = {
     asHttpResponseFromResult(tup._1, tup._2, tup._3)
   }
 
-  implicit def asHttpResponseFromResult[T <: Resource](successCode: StatusCode, result: Result[T], expanded: Boolean): HttpResponse = {
+  implicit def asHttpResponseFromResult[T <: Resource](successCode: StatusCode, result: Result[T], expanded: Boolean)(implicit context: RepositoryContext): HttpResponse = {
     result match {
       case Right(r) => HttpResponse(successCode, Nil, HttpEntity(ContentType(r), r.asJson(expanded).noSpaces))
       case Left(exception) => exception match {
