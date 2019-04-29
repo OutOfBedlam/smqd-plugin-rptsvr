@@ -44,14 +44,23 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
     }
   }
 
-  def setResource(path: String, contentType: ContentType, body: Config, createFolders: Boolean, overwrite: Boolean): Future[HttpResponse] = {
-    logger.trace(s"write resource >> $path ${contentType.toString} ${body.root.render(ConfigRenderOptions.concise)}")
+  def setResource(path: String, contentType: ContentType, json: Json, createFolders: Boolean, overwrite: Boolean): Future[HttpResponse] = {
+    logger.trace(s"write resource >> $path ${contentType.toString} ${json.noSpaces}")
     val mediaType = contentType.mediaType
     val subType = mediaType.subType
     if (mediaType.isApplication && subType.startsWith("repository.") && subType.endsWith("+json")) {
       val resourceType = subType.substring("repository.".length, subType.lastIndexOf("+json"))
       logger.trace(s"                  resourceType='$resourceType'")
-      repo.setResource(path, body, createFolders, overwrite, resourceType).map( (StatusCodes.Created, _, true) )
+      Resource(json, resourceType) match {
+        case Right(resource) =>
+          repo.setResource(path, resource, createFolders, overwrite).map( (StatusCodes.Created, _, true) )
+        case Left(failure) =>
+          Future{
+            val err = s"Error can not parse resource as $resourceType, $failure"
+            logger.error(err)
+            (StatusCodes.BadRequest, Json.obj(("error", Json.fromString(err))))
+          }
+      }
     }
     else {
       Future{
@@ -61,6 +70,23 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
     }
   }
 
+//  def setResource(path: String, contentType: ContentType, body: Config, createFolders: Boolean, overwrite: Boolean): Future[HttpResponse] = {
+//    logger.trace(s"write resource >> $path ${contentType.toString} ${body.root.render(ConfigRenderOptions.concise)}")
+//    val mediaType = contentType.mediaType
+//    val subType = mediaType.subType
+//    if (mediaType.isApplication && subType.startsWith("repository.") && subType.endsWith("+json")) {
+//      val resourceType = subType.substring("repository.".length, subType.lastIndexOf("+json"))
+//      logger.trace(s"                  resourceType='$resourceType'")
+//      repo.setResource(path, body, createFolders, overwrite, resourceType).map( (StatusCodes.Created, _, true) )
+//    }
+//    else {
+//      Future{
+//        logger.error(s"Unhandled content type: ${contentType.toString}")
+//        (StatusCodes.BadRequest, Json.obj(("error", Json.fromString(s"Unhandled content type: $contentType"))))
+//      }
+//    }
+//  }
+//
   def deleteResource(path: String): Future[HttpResponse] = {
     repo.deleteResource(path).map { success =>
       if (success) {

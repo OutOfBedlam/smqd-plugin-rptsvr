@@ -2,11 +2,11 @@ package com.thing2x.rptsvr.repo.fs
 
 import java.io.File
 import java.text.SimpleDateFormat
+import java.util.Date
 
 import com.thing2x.rptsvr._
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
-import com.thing2x.smqd.util.ConfigUtil._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -48,13 +48,19 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
       Left(new ResourceNotFoundException(path))
   }
 
-  def setResource(path: String, request: Config, createFolders: Boolean, overwrite: Boolean, resourceType: String): Future[Result[Resource]] = Future {
-    logger.debug(s"set resource uri=${request.getOptionString(META_URI).getOrElse("<null>")}")
+  def setResource(path: String, resource: Resource, createFolders: Boolean, overwrite: Boolean): Future[Result[Resource]] = Future {
+    logger.debug(s"set resource uri=${resource.uri}")
 
     val fr = FsFile(path)
     if ( !fr.exists || overwrite ) {
-      fr.write(resourceType, request)
+      fr.metaFile.getParentFile.mkdirs()
+      if (resource.creationDate.isEmpty) resource.creationDate = new Date(System.currentTimeMillis)
+      if (resource.updateDate.isEmpty) resource.updateDate = new Date(System.currentTimeMillis)
+      // increase versiopn number
+      resource.version += 1
+      resource.write(fr)
     }
+
     fr.asResource
   }
 
@@ -83,5 +89,9 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
 
     val file = FsFile(path)
     file.delete()
+  }
+
+  def writeResource(resource: Resource): Unit = {
+
   }
 }

@@ -1,11 +1,11 @@
 package com.thing2x.rptsvr.api
 
-import akka.http.scaladsl.model.{ContentType, MediaType, MediaTypes}
+import akka.http.scaladsl.model.MediaType
 import akka.http.scaladsl.server.{Directives, Route}
 import com.thing2x.smqd.net.http.HttpServiceContext
 import com.thing2x.smqd.rest.RestController
 import com.thing2x.smqd.util.FailFastCirceSupport
-import com.thing2x.smqd.util.ConfigUtil._
+import io.circe.Json
 
 class RestV2Controller(name: String, context: HttpServiceContext) extends RestController(name, context)
   with Directives with FailFastCirceSupport {
@@ -40,9 +40,12 @@ class RestV2Controller(name: String, context: HttpServiceContext) extends RestCo
         complete(resourceHandler.getResource(uri, mediaTypeFromString(accept), expanded))
       } ~
       (post & parameters('createFolders.as[Boolean], 'overwrite.as[Boolean]) & extract(_.request.entity)) { (createFolders, overwrite, content) =>
-        entity(as[com.typesafe.config.Config]) { body =>
-          complete(resourceHandler.setResource(uri, content.contentType, body, createFolders, overwrite))
+        entity(as[Json]) { json =>
+          complete(resourceHandler.setResource(uri, content.contentType, json, createFolders, overwrite))
         }
+//        entity(as[com.typesafe.config.Config]) { body =>
+//          complete(resourceHandler.setResource(uri, content.contentType, body, createFolders, overwrite))
+//        }
       } ~
       delete {
         complete(resourceHandler.deleteResource(uri))

@@ -3,7 +3,6 @@ package com.thing2x.rptsvr
 import java.text.SimpleDateFormat
 
 import com.thing2x.smqd.Smqd
-import com.typesafe.config.Config
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,7 +19,7 @@ trait Repository {
   val context: RepositoryContext
   def listFolder(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]]
 
-  def setResource(path: String, request: Config, createFolders: Boolean, overwrite: Boolean, resourceType: String): Future[Result[Resource]]
+  def setResource(path: String, request: Resource, createFolders: Boolean, overwrite: Boolean): Future[Result[Resource]]
   def getResource(path: String): Future[Result[Resource]]
 
   // TODO: this method should be return Source (or InputStream) instead of File : this was intended for the quick develop purpose

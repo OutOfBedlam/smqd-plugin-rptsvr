@@ -6,22 +6,22 @@ import java.util.Date
 import akka.http.scaladsl.model.ContentType
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.syntax._
-import io.circe.{ACursor, DecodingFailure, HCursor, Json}
+import io.circe.{ACursor, DecodingFailure, Json}
 
-import scala.concurrent.ExecutionContext
-import scala.util.Success
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
 
 object Resource extends StrictLogging {
 
-  def apply(json: Json)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
-    apply(json.hcursor)
+  def apply(json: Json, defaultResourceType: String = "file")(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
+    apply(json.hcursor, defaultResourceType)
   }
 
-  def apply(cur: ACursor)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
+  def apply(cur: ACursor, defaultResourceType: String)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
     try {
       val resourceType = cur.downField("resourceType").as[String] match {
         case Right(v) => v.toLowerCase()
-        case _ => "file"
+        case _ => defaultResourceType
       }
       val uri = cur.downField("uri").as[String].right.get
       val label = cur.downField("label").as[String].right.get
@@ -57,7 +57,7 @@ object Resource extends StrictLogging {
   }
 }
 
-abstract class Resource extends StrictLogging {
+abstract class Resource(implicit context: RepositoryContext) extends StrictLogging {
   //////////////////////////////
   // common attributes
   val uri: String
@@ -83,9 +83,13 @@ abstract class Resource extends StrictLogging {
 
   //////////////////////////////
   // asJson
-  def asJson(implicit context: RepositoryContext): Json = asJson( expanded = true )
+  def asJson: Json = asJson( expanded = true )
 
-  def asJson(expanded: Boolean)(implicit context: RepositoryContext): Json = {
+  def asJson(expanded: Boolean): Json = asJson(expanded, asLookupResult = false)
+
+  def asLookupResult: Json = asJson(expanded = false, asLookupResult = true)
+
+  private def asJson(expanded: Boolean, asLookupResult: Boolean): Json = {
     var attr = Map(
       "uri" -> Json.fromString(uri),
       "label" -> Json.fromString(label),
@@ -101,63 +105,82 @@ abstract class Resource extends StrictLogging {
     if (updateDate.isDefined)
       attr ++= Map("updateDate" -> Json.fromString(context.datetimeFormat.format(updateDate.get)))
 
-    attr ++= encodeFields(expanded)
+    if (asLookupResult) {
+      attr ++= Map("resourceType" -> Json.fromString(resourceType))
+    }
+
+    if (!asLookupResult) {
+      attr ++= encodeFields(expanded)
+    }
     Json.obj(attr.toSeq:_*)
   }
 
-  def asLookupResult(implicit context: RepositoryContext): Json = {
+  def asMeta: Json = {
     var attr = Map(
       "uri" -> Json.fromString(uri),
       "label" -> Json.fromString(label),
       "version" -> Json.fromInt(version),
-      "permissionMask" -> Json.fromInt(permissionMask),
-      "resourceType" -> Json.fromString(resourceType))
+      "permissionMask" -> Json.fromInt(permissionMask))
 
-    if (description.isDefined)
-      attr ++= Map("description" -> Json.fromString(description.get))
+    if (description.isDefined)  attr ++= Map("description" -> Json.fromString(description.get))
+    if (creationDate.isDefined) attr ++= Map("creationTime" -> Json.fromLong(creationDate.get.getTime))
+    if (updateDate.isDefined)   attr ++= Map("updateTime" -> Json.fromLong(updateDate.get.getTime))
 
-    if (creationDate.isDefined)
-      attr ++= Map("creationDate" -> Json.fromString(context.datetimeFormat.format(creationDate.get)))
-
-    if (updateDate.isDefined)
-      attr ++= Map("updateDate" -> Json.fromString(context.datetimeFormat.format(updateDate.get)))
-
+    attr ++= Map("resourceType" -> Json.fromString(resourceType))
+    attr ++= encodeFields( expanded = false)
     Json.obj(attr.toSeq:_*)
   }
 
   //////////////////////////////
   // encode/deocode resource specific fields
-  def encodeFields(expanded: Boolean)(implicit context: RepositoryContext): Map[String, Json]
-  def decodeFields(cur: ACursor)(implicit context: RepositoryContext): Either[DecodingFailure, Resource]
+  def encodeFields(expanded: Boolean): Map[String, Json]
+  def decodeFields(cur: ACursor): Either[DecodingFailure, Resource]
+
+  //////////////////////////////
+  // write resource to repository
+  def write(writer: ResourceWriter): Unit
 }
 
-class FolderResource(val uri: String, val label: String) extends Resource {
+class FolderResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
   override val resourceType: String = "folder"
-  override def encodeFields(expanded: Boolean)(implicit context: RepositoryContext): Map[String, Json] = Map.empty
-  override def decodeFields(cur: ACursor)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = Right(this)
+  override def encodeFields(expanded: Boolean): Map[String, Json] = Map.empty
+  override def decodeFields(cur: ACursor): Either[DecodingFailure, Resource] = Right(this)
+
+  def write(writer: ResourceWriter): Unit = {
+    writer.writeMeta(this)
+  }
 }
 
-class FileResource(val uri: String, val label: String) extends Resource {
+class FileResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
   var fileType: String = ""
 
   override val resourceType: String = "file"
 
-  override def encodeFields(expanded: Boolean)(implicit context: RepositoryContext): Map[String, Json] =
+  override def encodeFields(expanded: Boolean): Map[String, Json] =
     Map("type"->Json.fromString(fileType))
 
-  override def decodeFields(cur: ACursor)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
-    fileType = cur.downField("type").as[String].right.get
+  override def decodeFields(cur: ACursor): Either[DecodingFailure, Resource] = {
+    cur.downField("type").as[String] match {
+      case Right(typ) => fileType = typ
+      case _ => logger.error(s"resource $uri doesn't have 'type' meta info")
+    }
     cur.downField("content").as[String] match {
       case Right(data) => content = Some(data)
       case _ => content = None
     }
     Right(this)
   }
+
+  def write(writer: ResourceWriter): Unit = {
+    writer.writeMeta(this)
+    if (content.isDefined)
+      writer.writeContent(content.get)
+  }
 }
 
 case class FileContent(uri: String, file: File, contentType: ContentType)
 
-class ReportUnitResource(val uri: String, val label: String) extends Resource {
+class ReportUnitResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
   var alwaysPromptControls: Boolean = true
   var controlsLayout: String = "popupScreen"
   var jrxml: Option[FileResource] = None
@@ -165,7 +188,7 @@ class ReportUnitResource(val uri: String, val label: String) extends Resource {
 
   override val resourceType: String = "reportUnit"
 
-  override def encodeFields(expanded: Boolean)(implicit context: RepositoryContext): Map[String, Json] = Map(
+  override def encodeFields(expanded: Boolean): Map[String, Json] = Map(
     "alwaysPromptControls" -> Json.fromBoolean(alwaysPromptControls),
     "controlsLayout" -> Json.fromString(controlsLayout),
     "jrxml" -> (
@@ -196,7 +219,7 @@ class ReportUnitResource(val uri: String, val label: String) extends Resource {
     )
   )
 
-  override def decodeFields(cur: ACursor)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
+  override def decodeFields(cur: ACursor): Either[DecodingFailure, Resource] = {
     alwaysPromptControls = cur.downField("alwaysPromptControls").as[Boolean].right.get
     controlsLayout = cur.downField("controlsLayout").as[String].right.get
     val jcur = cur.downField("jrxml")
@@ -208,8 +231,9 @@ class ReportUnitResource(val uri: String, val label: String) extends Resource {
       if (ref.isRight){
         val path = ref.right.get
         implicit val ec: ExecutionContext = context.executionContext
-        context.repository.getResource(path).onComplete {
-          case Success(r) =>
+        val future = context.repository.getResource(path)
+        Await.result(future, 5.seconds) match {
+          case Right(r) =>
             jrxml = Some(r.asInstanceOf[FileResource])
           case _ =>
             logger.error(s"Jrxml reference loading failure: $path referenced in $uri")
@@ -218,7 +242,7 @@ class ReportUnitResource(val uri: String, val label: String) extends Resource {
       }
     }
     else if (jrxmlFileCur.succeeded) {
-      Resource(jrxmlFileCur) match {
+      Resource(jrxmlFileCur, "file") match {
         case Right(r) if r.isInstanceOf[FileResource] => jrxml = Some(r.asInstanceOf[FileResource])
         case _ =>
           logger.error(s"Jrxml File loading failure $uri")
@@ -239,17 +263,18 @@ class ReportUnitResource(val uri: String, val label: String) extends Resource {
         if (ref.isRight){
           val path = ref.right.get
           implicit val ec: ExecutionContext = context.executionContext
-          context.repository.getResource(path).onComplete {
-            case Success(r) =>
-              resourceMap ++= Map(name -> r.asInstanceOf[FileResource])
-            case _ =>
-              logger.error(s"Resource reference loading failure: $path referenced in $uri")
-              throw new ResourceNotFoundException(path)
-          }
+          val future = context.repository.getResource(path)
+            Await.result(future, 5.seconds) match {
+              case Right(r) =>
+                resourceMap ++= Map(name -> r.asInstanceOf[FileResource])
+              case _ =>
+                logger.error(s"Resource reference loading failure: $path referenced in $uri")
+                throw new ResourceNotFoundException(path)
+            }
         }
       }
       else if (fileRscCur.succeeded) {
-        Resource(fileRscCur) match {
+        Resource(fileRscCur, "file") match {
           case Right(r) if r.isInstanceOf[FileResource] => resourceMap ++= Map(name -> r.asInstanceOf[FileResource])
           case _ =>
             logger.error(s"Resource reference loading failure in $uri")
@@ -263,6 +288,17 @@ class ReportUnitResource(val uri: String, val label: String) extends Resource {
     Right(this)
   }
 
+  def write(writer: ResourceWriter): Unit = {
+    writer.writeMeta(this)
+    jrxml match {
+      case Some(r) => context.repository.setResource(r.uri, r, true, true)
+      case _ =>
+    }
+
+    resources.foreach{ case(name, r) =>
+      context.repository.setResource(r.uri, r, true, true)
+    }
+  }
 }
 
 //case class JndiDataSourceResource(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String, `type`: String,

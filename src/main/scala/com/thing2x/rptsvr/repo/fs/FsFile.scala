@@ -1,16 +1,15 @@
 package com.thing2x.rptsvr.repo.fs
 
 import java.io.{File, FileOutputStream, OutputStreamWriter}
-import java.util.{Base64, Date}
+import java.util.Base64
 
 import akka.http.scaladsl.model.MediaType.{Compressible, NotCompressible}
 import akka.http.scaladsl.model.{ContentType, HttpCharsets, MediaType, MediaTypes}
 import com.thing2x.rptsvr._
-import com.thing2x.smqd.util.ConfigUtil._
-import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
+import io.circe.parser
 
-import scala.collection.JavaConverters._
 import scala.io.Source
 import scala.language.implicitConversions
 
@@ -54,7 +53,7 @@ object FsFile {
   }
 }
 
-class FsFile(file: File)(implicit context: FileRepositoryContext) extends StrictLogging {
+class FsFile(file: File)(implicit context: FileRepositoryContext) extends ResourceWriter with StrictLogging {
 
   val metaFile = new File(file, METAFILENAME)
 
@@ -88,88 +87,20 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Strict
     rsc.right.get
   }
 
-  // since resourceType comes from Content-type header, it consists of all lower case letters
-  def write(resourceType: String, body: Config): Unit = {
-    file.mkdirs()
-
-    // save creationDate (String) as creationTime (Long)
-    val creationtime = if (body.hasPath(META_CREATIONTIME)) {
-      body.getLong(META_CREATIONTIME)
-    }
-    else {
-      if (body.hasPath(META_CREATIONDATE))
-        context.datetimeFormat.parse(body.getString(META_CREATIONDATE)).getTime
-      else
-        System.currentTimeMillis()
-    }
-
-    // save updateDate (String) as updateTime (Long)
-    val updatetime = if (body.hasPath(META_UPDATETIME)) {
-      body.getLong(META_UPDATETIME)
-    }
-    else {
-      if (body.hasPath(META_UPDATEDATE))
-        context.datetimeFormat.parse(body.getString(META_CREATIONDATE)).getTime
-      else
-        creationtime
-    }
-
-    // increase versiopn number
-    val version = if (body.hasPath(META_VERSION) && body.getInt(META_VERSION) == -1) 0 else body.getInt(META_VERSION)
-
-    val additionalFields = Map[String, Any](
-      META_RESOURCETYPE(resourceType),
-      META_VERSION(version),
-      META_CREATIONTIME(creationtime),
-      META_UPDATETIME(updatetime))
-
-    // content
-    val content = body.getOptionString(META_CONTENT)
-
-    // if report unit
-    if (resourceType == "reportunit") {
-      // jrxml
-      body.getOptionConfig("jrxml.jrxmlFile") match {
-        case Some(jrxml) =>
-          val jrxmlFile = FsFile(jrxml.getString("uri"))
-          jrxmlFile.write("file", jrxml)
-        case _ =>
-      }
-      // resources
-      body.getOptionConfigList("resources.resource").foreach { lst =>
-        lst.asScala.foreach{ c =>
-          val name = c.getString("name")
-          val fileCfg = c.getOptionConfig("file.fileResource")
-          logger.trace(s"resource '$name' $fileCfg")
-          if (fileCfg.isDefined) {
-            val file = FsFile(fileCfg.get.getString("uri"))
-            file.write("file", fileCfg.get)
-          }
-        }
-      }
-    }
-
-    // additional fields, removed fields
-    val finalMeta = ConfigFactory.parseMap(additionalFields.asJava).withFallback(body)
-      .withoutPath(META_CREATIONDATE)
-      .withoutPath(META_CREATIONDATE)
-      .withoutPath(META_CONTENT)
-      .withoutPath("jrxml.jrxmlFile.content")
-
+  def writeMeta(resource: Resource): Unit = {
+    val json = resource.asMeta
     /// write meta file
-    val opt = ConfigRenderOptions.defaults().setComments(false).setOriginComments(false)
-    val metaString = finalMeta.root.render(opt)
     val w = new OutputStreamWriter(new FileOutputStream(metaFile))
-    w.write(metaString)
+    w.write(json.spaces2)
     w.close()
+  }
 
-    /// write content file
-    if (content.isDefined) {
-      val buff = Base64.getDecoder.decode(content.get)
-      val out = new FileOutputStream(contentFile)
-      out.write(buff)
-      out.close()
-    }
+  def writeContent(base64Content: String): Unit = {
+    /// write base64 encoded content to the file
+    val buff = Base64.getDecoder.decode(base64Content)
+    val out = new FileOutputStream(contentFile)
+    out.write(buff)
+    out.close()
   }
 
   def exists: Boolean = file.exists() && metaFile.exists()
@@ -188,13 +119,19 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Strict
   def mkdir(label: String): Boolean = {
     file.mkdirs()
     if (file.exists() && file.canWrite) {
-      write("folder", ConfigFactory.parseString(
+      val json = parser.parse(
         s"""
-           |uri=$uri
-           |label=$label
-           |version=0
-           |permissionMask=1
-             """.stripMargin))
+          |{
+          |  "uri": "$uri",
+          |  "label": "$label",
+          |  "version": 0,
+          |  "permissionMask": 1,
+          |  "resourceType": "folder"
+          |}
+        """.stripMargin).right.get
+
+      val resource = Resource(json).right.get
+      context.repository.setResource(uri, resource, true, true)
       true
     }
     else {
