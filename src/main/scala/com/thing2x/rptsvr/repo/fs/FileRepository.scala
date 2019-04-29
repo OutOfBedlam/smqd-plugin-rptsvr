@@ -47,7 +47,7 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
   }
 
   def setResource(path: String, request: Config, createFolders: Boolean, overwrite: Boolean, resourceType: String): Future[Result[Resource]] = Future {
-    logger.debug(s"set resource: ${request.getOptionString(META_URI).getOrElse("<null>")}")
+    logger.debug(s"set resource uri=${request.getOptionString(META_URI).getOrElse("<null>")}")
 
     val fr = FsFile(path)
     if ( !fr.exists || overwrite ) {

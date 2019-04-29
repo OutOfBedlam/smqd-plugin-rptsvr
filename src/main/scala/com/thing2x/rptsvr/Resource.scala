@@ -48,8 +48,13 @@ case class DataSourceReference(dataSourceReference: ReferenceUri)
 case class QueryResource(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String, `type`: String,
                          value: String, language: String, dataSource: DataSourceReference) extends Resource
 
+// jrxml
 case class JrxmlFile(jrxmlFile: Resource)
-case class JrxmlResources(resource: Seq[String])
 
-case class ReportUnitResource(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String, `type`: String,
+// reportunit
+case class JrxmlResourceFile(fileResource: Resource)
+case class JrxmlResource(name: String, file: JrxmlResourceFile)
+case class JrxmlResources(resource: Seq[JrxmlResource])
+
+case class ReportUnitResource(uri: String, label: String, permissionMask: Int, description: Option[String], version: Int, creationDate: String, updateDate: String,
                               inputControls: Seq[String], alwaysPromptControls: Boolean, controlLayout: String, jrxml: JrxmlFile, resources: JrxmlResources) extends Resource

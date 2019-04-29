@@ -18,6 +18,16 @@ object ResourceHandler {
   case class ResourceLookupResponse(resourceLookup: Seq[ResourceLookupItem])
 
   case class ResourceError(message: String, errorCode: String, parameters: Seq[String])
+
+  def resourceTypeOf(r: Resource): String = r match {
+    case _: FolderResource => "folder"
+    case _: FileResource => "file"
+    case _: ReportUnitResource =>"reportUnit"
+    case _ => "file"
+  }
+
+  def resourceToLookupItem(r: Resource): ResourceLookupItem =
+    ResourceLookupItem(r.uri, r.label, r.permissionMask, r.description, r.version, r.creationDate, r.updateDate, resourceTypeOf(r))
 }
 
 class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) extends StrictLogging {
@@ -29,14 +39,7 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
 
     repo.listFolder(path, recursive, sortBy, limit).map {
       case Right(list) =>
-        val result = list.map{
-          case r: FolderResource =>
-            ResourceLookupItem(r.uri, r.label, r.permissionMask, r.description, r.version, r.creationDate, r.updateDate, "folder")
-          case r: FileResource =>
-            ResourceLookupItem(r.uri, r.label, r.permissionMask, r.description, r.version, r.creationDate, r.updateDate, "file")
-          case r =>
-            ResourceLookupItem(r.uri, r.label, r.permissionMask, r.description, r.version, r.creationDate, r.updateDate, "file")
-        }
+        val result = list.map( r => resourceToLookupItem( r ) )
         (StatusCodes.OK, ResourceLookupResponse(result).asJson)
       case Left(ex) =>
         logger.warn(s"lookupResource failure: $path ", ex)
@@ -69,6 +72,7 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
     val subType = mediaType.subType
     if (mediaType.isApplication && subType.startsWith("repository.") && subType.endsWith("+json")) {
       val resourceType = subType.substring("repository.".length, subType.lastIndexOf("+json"))
+      logger.trace(s"                  resourceType='$resourceType'")
       repo.setResource(path, body, createFolders, overwrite, resourceType).map( (StatusCodes.Created, _) )
     }
     else {

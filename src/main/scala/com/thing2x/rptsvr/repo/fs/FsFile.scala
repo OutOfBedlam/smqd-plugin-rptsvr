@@ -5,9 +5,10 @@ import java.util.{Base64, Date}
 
 import akka.http.scaladsl.model.MediaType.{Compressible, NotCompressible}
 import akka.http.scaladsl.model.{ContentType, HttpCharsets, MediaType, MediaTypes}
-import com.thing2x.rptsvr.{FileResource, FolderResource, JrxmlFile, JrxmlResources, ReportUnitResource, Resource}
+import com.thing2x.rptsvr.{FileResource, FolderResource, JrxmlFile, JrxmlResource, JrxmlResourceFile, JrxmlResources, ReportUnitResource, Resource}
 import com.thing2x.smqd.util.ConfigUtil._
 import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
@@ -52,7 +53,7 @@ object FsFile {
   }
 }
 
-class FsFile(file: File)(implicit context: FileRepositoryContext) {
+class FsFile(file: File)(implicit context: FileRepositoryContext) extends StrictLogging {
 
   val metaFile = new File(file, METAFILENAME)
 
@@ -103,6 +104,13 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) {
           meta.getString(META_FILETYPE)
         )
       case "reportunit" =>
+        val jrxml = FsFile(meta.getString("jrxml.jrxmlFile.uri")).asResource
+        val resources = meta.getConfigList("resources.resource").asScala.map { c =>
+          val name = c.getString("name")
+          val file = FsFile(c.getString("file.fileResource.uri")).asResource
+          JrxmlResource(name, JrxmlResourceFile(file))
+        }
+
         ReportUnitResource(
           meta.getString(META_URI),
           meta.getString(META_LABEL),
@@ -111,12 +119,11 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) {
           meta.getInt(META_VERSION),
           context.datetimeFormat.format(new Date(meta.getLong(META_CREATIONTIME))),
           context.datetimeFormat.format(new Date(meta.getLong(META_UPDATETIME))),
-          "reportunit",
           Seq.empty,
           meta.getBoolean(META_ALWAYSPROMPTCONTROLS),
           meta.getString(META_CONTROLRAYOUT),
-          JrxmlFile(FsFile(meta.getString("jrxml.jrxmlFile.uri")).asResource),
-          JrxmlResources(Seq.empty)
+          JrxmlFile(jrxml),
+          JrxmlResources(resources)
         )
       case "jndiDataSource" => ???
       case "jdbcDataSource" => ???
@@ -128,6 +135,7 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) {
     }
   }
 
+  // since resourceType comes from Content-type header, it consists of all lower case letters
   def write(resourceType: String, body: Config): Unit = {
     file.mkdirs()
 
@@ -166,11 +174,26 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) {
     val content = body.getOptionString(META_CONTENT)
 
     // if report unit
-    body.getOptionConfig("jrxml.jrxmlFile") match {
-      case Some(jrxml) =>
-        val jrxmlFile = FsFile(jrxml.getString("uri"))
-        jrxmlFile.write("file", jrxml)
-      case _ =>
+    if (resourceType == "reportunit") {
+      // jrxml
+      body.getOptionConfig("jrxml.jrxmlFile") match {
+        case Some(jrxml) =>
+          val jrxmlFile = FsFile(jrxml.getString("uri"))
+          jrxmlFile.write("file", jrxml)
+        case _ =>
+      }
+      // resources
+      body.getOptionConfigList("resources.resource").foreach { lst =>
+        lst.asScala.foreach{ c =>
+          val name = c.getString("name")
+          val fileCfg = c.getOptionConfig("file.fileResource")
+          logger.trace(s"resource '$name' $fileCfg")
+          if (fileCfg.isDefined) {
+            val file = FsFile(fileCfg.get.getString("uri"))
+            file.write("file", fileCfg.get)
+          }
+        }
+      }
     }
 
     // additional fields, removed fields
