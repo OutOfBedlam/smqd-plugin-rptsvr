@@ -44,7 +44,7 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
   }
 
   def setResource(path: String, contentType: ContentType, json: Json, createFolders: Boolean, overwrite: Boolean): Future[HttpResponse] = {
-    logger.trace(s"set resource >> $path ${contentType.toString} ${json.noSpaces}")
+    logger.trace(s"set resource >> $path ${contentType.toString} ${json.spaces2}")
     val mediaType = contentType.mediaType
     val subType = mediaType.subType
     if (mediaType.isApplication && subType.startsWith("repository.") && subType.endsWith("+json")) {

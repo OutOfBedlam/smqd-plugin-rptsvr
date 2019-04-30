@@ -90,8 +90,4 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
     val file = FsFile(path)
     file.delete()
   }
-
-  def writeResource(resource: Resource): Unit = {
-
-  }
 }

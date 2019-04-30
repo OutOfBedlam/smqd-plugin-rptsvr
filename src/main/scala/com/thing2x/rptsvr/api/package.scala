@@ -11,6 +11,10 @@ import io.circe.syntax._
 import scala.language.implicitConversions
 
 package object api {
+  // akka-http has issue to match range of content-type https://github.com/akka/akka-http/issues/2126
+  // the specification reads it should comapre content type in case-insensitive way
+  // but current version of akka-http do it in case-sensitive way
+  // This should changed in the future version of akka-http
   val `application/json`: MediaType.WithFixedCharset =
     MediaType.applicationWithFixedCharset("json", HttpCharsets.`UTF-8`)
 
@@ -32,6 +36,17 @@ package object api {
   val `application/repository.resourceLookup+json`: MediaType.WithFixedCharset =
     MediaType.applicationWithFixedCharset("repository.resourcelookup+json", HttpCharsets.`UTF-8`)
 
+  val `application/repository.inputControl+json`: MediaType.WithFixedCharset =
+    MediaType.applicationWithFixedCharset("repository.inputcontrol+json", HttpCharsets.`UTF-8`)
+
+  val `application/repository.dataType+json`: MediaType.WithFixedCharset =
+    MediaType.applicationWithFixedCharset("repository.datatype+json", HttpCharsets.`UTF-8`)
+
+  val `application/repository.listOfValues+json`: MediaType.WithFixedCharset =
+    MediaType.applicationWithFixedCharset("repository.listOfValues+json", HttpCharsets.`UTF-8`)
+
+  val `application/repository.query+json`: MediaType.WithFixedCharset =
+    MediaType.applicationWithFixedCharset("repository.query+json", HttpCharsets.`UTF-8`)
 
   def resourceMediaTypes: List[MediaType.WithFixedCharset] = List(
     `application/json`,
@@ -40,6 +55,10 @@ package object api {
     `application/repository.resourceLookup+json`,
     `application/repository.reportUnit+json`,
     `application/repository.jdbcDataSource+json`,
+    `application/repository.inputControl+json`,
+    `application/repository.dataType+json`,
+    `application/repository.listOfValues+json`,
+    `application/repository.query+json`,
   )
 
   def mediaTypeFromString(mediaType: String): MediaType = {
@@ -50,30 +69,8 @@ package object api {
     if (filtered.isEmpty) `application/json` else filtered.head
   }
 
-  // akka-http has issue to match range of content-type https://github.com/akka/akka-http/issues/2126
-  // the specification reads it should comapre content type in case-insensitive way
-  // but current version of akka-http do it in case-sensitive way
-  // so, this is the work around for now: using different variables
-  private val mediaReportUnit = MediaType.applicationWithFixedCharset("repository.reportUnit+json", HttpCharsets.`UTF-8`)
-  private val mediaJdbcDataSource = MediaType.applicationWithFixedCharset("repository.jdbcDataSource+json", HttpCharsets.`UTF-8`)
-
-  implicit def asMediaTypeFromResource[T <: Resource](resource: T): MediaType.WithFixedCharset = {
-    resource match {
-      case _: FolderResource => `application/repository.folder+json`
-      case fr: FileResource =>
-        fr.fileType.toLowerCase match {
-          case "reportunit" =>  mediaReportUnit
-          case "jrxml" =>      `application/repository.jrxml+json`
-          case _ =>            `application/json`
-        }
-      case _: ReportUnitResource => mediaReportUnit
-      case _: JdbcDataSourceResource => mediaJdbcDataSource
-      case _ => `application/json`
-    }
-  }
-
   implicit def asResponseEntity(resource: Resource)(implicit context: RepositoryContext): ResponseEntity = {
-    HttpEntity(ContentType(resource), resource.asJson.noSpaces)
+    HttpEntity(ContentType(resource.mediaType), resource.asJson.noSpaces)
   }
 
   implicit def asHttpResponseFromResource(tup: (StatusCode, Resource))(implicit context: RepositoryContext): HttpResponse = {
@@ -98,7 +95,7 @@ package object api {
 
   implicit def asHttpResponseFromResult[T <: Resource](successCode: StatusCode, result: Result[T], expanded: Boolean)(implicit context: RepositoryContext): HttpResponse = {
     result match {
-      case Right(r) => HttpResponse(successCode, Nil, HttpEntity(ContentType(r), r.asJson(expanded).noSpaces))
+      case Right(r) => HttpResponse(successCode, Nil, HttpEntity(ContentType(r.mediaType), r.asJson(expanded).noSpaces))
       case Left(exception) => exception match {
         case _: ResourceNotFoundException => asHttpResponseFromResourceError(StatusCodes.NotFound, ResourceError("Resource not found.", "resource.not.found", Seq.empty))
         case ex: FileNotFoundException => asHttpResponseFromResourceError(StatusCodes.NotFound, ResourceError("Resource not found.", "resource.not.found", Seq.empty))

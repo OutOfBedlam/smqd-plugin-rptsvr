@@ -1,11 +1,13 @@
 package com.thing2x.rptsvr
 
+import akka.http.scaladsl.model.{HttpCharsets, MediaType}
 import io.circe.{ACursor, DecodingFailure, Json}
 
 class FileResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
-  var fileType: String = ""
-
   override val resourceType: String = "file"
+  override val mediaType: MediaType.WithFixedCharset = MediaType.applicationWithFixedCharset("repository.file+json", HttpCharsets.`UTF-8`)
+
+  var fileType: String = ""
 
   override def encodeFields(expanded: Boolean): Map[String, Json] =
     Map("type"->Json.fromString(fileType))

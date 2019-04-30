@@ -88,6 +88,7 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Resour
   }
 
   def writeMeta(resource: Resource): Unit = {
+    logger.trace(s"write meta uri=$uri")
     val json = resource.asMeta
     /// write meta file
     val w = new OutputStreamWriter(new FileOutputStream(metaFile))
@@ -96,6 +97,7 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Resour
   }
 
   def writeContent(base64Content: String): Unit = {
+    logger.trace(s"write content uri=$uri")
     /// write base64 encoded content to the file
     val buff = Base64.getDecoder.decode(base64Content)
     val out = new FileOutputStream(contentFile)

@@ -1,11 +1,12 @@
 package com.thing2x.rptsvr
 
-import java.io.File
 import java.util.Date
 
-import akka.http.scaladsl.model.ContentType
+import akka.http.scaladsl.model.MediaType
 import com.typesafe.scalalogging.StrictLogging
-import io.circe.{ACursor, DecodingFailure, Json}
+import io.circe.{ACursor, CursorOp, DecodingFailure, Json}
+
+import scala.concurrent.{Await, ExecutionContext}
 
 object Resource extends StrictLogging {
 
@@ -29,10 +30,14 @@ object Resource extends StrictLogging {
 
       logger.trace(s"decode json uri=$uri resourceType=$resourceType label=$label ver=$ver desc=$description")
       val rt = resourceType.toLowerCase match {
-        case "folder" =>     new FolderResource(uri, label)
-        case "file" =>       new FileResource(uri, label)
-        case "reportunit" => new ReportUnitResource(uri, label)
+        case "folder"         => new FolderResource(uri, label)
+        case "file"           => new FileResource(uri, label)
+        case "reportunit"     => new ReportUnitResource(uri, label)
         case "jdbcdatasource" => new JdbcDataSourceResource(uri, label)
+        case "datatype"       => new DataTypeResource(uri, label)
+        case "inputcontrol"   => new InputControlResource(uri, label)
+        case "listofvalues"   => new ListOfValuesResource(uri, label)
+        case "query"          => new QueryResource(uri, label)
       }
       rt.permissionMask = permissionMask.getOrElse(0)
       rt.version = ver.getOrElse(-1)
@@ -74,6 +79,9 @@ abstract class Resource(implicit context: RepositoryContext) extends StrictLoggi
   //////////////////////////////
   // lookup resources
   val resourceType: String
+
+  // media type that sent to the client
+  val mediaType: MediaType.WithFixedCharset
 
   // write only field
   var content: Option[String] = None
@@ -136,6 +144,50 @@ abstract class Resource(implicit context: RepositoryContext) extends StrictLoggi
   //////////////////////////////
   // write resource to repository
   def write(writer: ResourceWriter): Unit
+
+  //////////////////////////////
+  // loading child resource
+
+  // using same field = downField
+  //     dataType/dataType
+  //     dataType/dataTypeReference
+  def decodeReferencedResource[T <: Resource](cur: ACursor, field: String, fieldType: String): Either[DecodingFailure, T] = {
+    decodeReferencedResource(cur, field, field, s"${field}Referece", fieldType)
+  }
+
+  // different field, downField
+  //     jrxml/jrxmlFile
+  //     jrxml/jrxmlFileReference
+  def decodeReferencedResource[T <: Resource](cur: ACursor, field: String, downField: String, fieldType: String): Either[DecodingFailure, T] = {
+    decodeReferencedResource(cur, field, field, s"${downField}Referece", fieldType)
+  }
+
+  // different field, downField
+  //     file/fileResource
+  //     file/fileReference
+  def decodeReferencedResource[T <: Resource](cur: ACursor, field: String, resourceFieldName: String, referenceFieldName: String, fieldType: String): Either[DecodingFailure, T] = {
+    val refCur = cur.downField(field).downField(referenceFieldName)
+    val valCur = cur.downField(field).downField(resourceFieldName)
+    if (refCur.succeeded) {
+      implicit val ec: ExecutionContext = context.executionContext
+      import scala.concurrent.duration._
+      val path = refCur.downField("uri").as[String].right.get
+      val future = context.repository.getResource(path)
+      Await.result(future, 5.seconds) match {
+        case Right(r) => Right(r.asInstanceOf[T])
+        case _ =>  Left(DecodingFailure(s"Referenced resource: $field failed to load from $path", Nil))
+      }
+    }
+    else if (valCur.succeeded) {
+      Resource(valCur, fieldType) match {
+        case Right(r) => Right(r.asInstanceOf[T])
+        case _ => Left(DecodingFailure(s"Referenced resource: $field failed to decode as $fieldType", Nil))
+      }
+    }
+    else {
+      Left(DecodingFailure(s"Referenced resource: $field failed to load", Nil))
+    }
+  }
+
 }
 
-case class FileContent(uri: String, file: File, contentType: ContentType)

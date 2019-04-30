@@ -1,11 +1,13 @@
 package com.thing2x.rptsvr
 
+import akka.http.scaladsl.model.{HttpCharsets, MediaType}
 import io.circe.{ACursor, DecodingFailure, Json}
 
 import scala.collection.mutable
 
-class JdbcDataSourceResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
+class JdbcDataSourceResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends DataSourceResource {
   override val resourceType: String = "jdbcDataSource"
+  override val mediaType: MediaType.WithFixedCharset = MediaType.applicationWithFixedCharset("repository.jdbcDataSource+json", HttpCharsets.`UTF-8`)
 
   var driverClass: Option[String] = None
   var username: Option[String] = None
