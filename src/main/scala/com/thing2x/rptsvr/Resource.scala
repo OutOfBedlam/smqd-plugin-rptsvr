@@ -4,7 +4,7 @@ import java.util.Date
 
 import akka.http.scaladsl.model.MediaType
 import com.typesafe.scalalogging.StrictLogging
-import io.circe.{ACursor, CursorOp, DecodingFailure, Json}
+import io.circe.{ACursor, DecodingFailure, Json}
 
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -162,14 +162,8 @@ abstract class Resource(implicit context: RepositoryContext) extends StrictLoggi
     val refCur = cur.downField(referenceFieldName)
     val valCur = cur.downField(resourceFieldName)
     if (refCur.succeeded) {
-      implicit val ec: ExecutionContext = context.executionContext
-      import scala.concurrent.duration._
       val path = refCur.downField("uri").as[String].right.get
-      val future = context.repository.getResource(path)
-      Await.result(future, 5.seconds) match {
-        case Right(r) => Right(r.asInstanceOf[T])
-        case _ =>  Left(DecodingFailure(s"Referenced resource: $fieldType failed to load from $path", Nil))
-      }
+      referencedResource(path)
     }
     else if (valCur.succeeded) {
       Resource(valCur, fieldType) match {
@@ -182,5 +176,14 @@ abstract class Resource(implicit context: RepositoryContext) extends StrictLoggi
     }
   }
 
+  def referencedResource[T <: Resource](uri: String): Either[DecodingFailure, T] = {
+    implicit val ec: ExecutionContext = context.executionContext
+    import scala.concurrent.duration._
+    val future = context.repository.getResource(uri)
+    Await.result(future, 5.seconds) match {
+      case Right(r) => Right(r.asInstanceOf[T])
+      case _ =>  Left(DecodingFailure(s"Referenced resource failed to load from $uri", Nil))
+    }
+  }
 }
 

@@ -163,6 +163,9 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
       val resources = cur.downField("resources").downField("resource").as[Seq[Json]]
       assert (resources.isRight)
       assert (resources.right.get.nonEmpty)
+      // check DataSource
+      val dataSource = cur.downField("dataSource")
+      assert (dataSource.downField("jdbcDataSource").succeeded)
     }
   }
 
@@ -174,6 +177,18 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
       val content = entityAs[String]
       val json = parser.parse(content).right.get
       logger.info(json.spaces2)
+
+      val cur = json.hcursor
+      // check inputControls
+      val inputControls = cur.downField("inputControls").as[Seq[Json]]
+      assert (inputControls.isRight)
+      assert (inputControls.right.get.nonEmpty)
+      // check jrxml
+      assert (cur.downField("jrxml").downField("jrxmlFileReference").succeeded)
+      // check resources
+      val resources = cur.downField("resources").downField("resource").as[Seq[Json]]
+      assert (resources.isRight)
+      assert (resources.right.get.nonEmpty)
 
     }
   }

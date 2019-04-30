@@ -4,6 +4,8 @@ import akka.http.scaladsl.model.{HttpCharsets, MediaType}
 import io.circe.syntax._
 import io.circe.{ACursor, DecodingFailure, Json}
 
+import scala.collection.mutable
+
 class ReportUnitResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
   override val resourceType: String = "reportUnit"
   override val mediaType: MediaType.WithFixedCharset = MediaType.applicationWithFixedCharset("repository.reportUnit+json", HttpCharsets.`UTF-8`)
@@ -13,45 +15,63 @@ class ReportUnitResource(val uri: String, val label: String)(implicit context: R
   var jrxml: Option[FileResource] = None
   var resources: Map[String, FileResource] = Map.empty
   var inputControls: Seq[InputControlResource] = Seq.empty
+  var dataSource: Option[DataSourceResource] = None
 
-  override def encodeFields(expanded: Boolean): Map[String, Json] = Map(
-    "alwaysPromptControls" -> Json.fromBoolean(alwaysPromptControls),
-    "controlsLayout" -> Json.fromString(controlsLayout),
-    "inputControls" -> inputControls.map( input =>
-      if (expanded) {
-        Json.obj("inputControl" -> input.asJson(expanded))
-      }
-      else {
-        Json.obj("inputControlReference" -> Json.obj("uri" -> Json.fromString(input.uri)))
-      }
-    ).asJson,
-    "jrxml" -> (
-      if (jrxml.isDefined) {
+  override def encodeFields(expanded: Boolean): Map[String, Json] = {
+    val map: mutable.Map[String, Json] = mutable.Map.empty
+
+    map("alwaysPromptControls") = Json.fromBoolean(alwaysPromptControls)
+    map("controlsLayout")       = Json.fromString(controlsLayout)
+
+    if (inputControls.nonEmpty) {
+      map("inputControls") = inputControls.map( input =>
         if (expanded) {
-          Json.obj("jrxmlFile" -> jrxml.get.asJson(expanded))
+          Json.obj("inputControl" -> input.asJson(expanded))
         }
         else {
-          Json.obj("jrxmlFileReference" -> Json.obj(
-            "uri" -> Json.fromString(jrxml.get.uri)
-          ))
-        }
+          Json.obj("inputControlReference" -> Json.obj("uri" -> Json.fromString(input.uri)))
+        }).asJson
+    }
+
+    if (jrxml.isDefined) {
+      map("jrxml") = if (expanded) {
+        Json.obj("jrxmlFile" -> jrxml.get.asJson(expanded))
       }
       else {
-        Json.Null
+        Json.obj("jrxmlFileReference" -> Json.obj(
+          "uri" -> Json.fromString(jrxml.get.uri)
+        ))
       }
-      ),
-    "resources" -> Json.obj(
-      "resource" ->
-        resources.map { case (name, r) =>
-          Json.obj("name" -> Json.fromString(name), "file" -> (
-            if (expanded)
-              Json.obj( "fileResource" -> r.asJson(expanded))
-            else
-              Json.obj("fileReference" -> Json.obj("uri" -> Json.fromString(r.uri)))
-            ))
-        }.asJson
-    )
-  )
+    }
+
+    if (resources.nonEmpty) {
+      map("resources") = Json.obj(
+        "resource" ->
+          resources.map { case (name, r) =>
+            Json.obj("name" -> Json.fromString(name), "file" -> (
+              if (expanded)
+                Json.obj( "fileResource" -> r.asJson(expanded))
+              else
+                Json.obj("fileReference" -> Json.obj("uri" -> Json.fromString(r.uri)))
+              ))
+          }.asJson)
+    }
+
+    if (dataSource.isDefined) {
+      val ds = dataSource.get
+      map("dataSource") = if (expanded) {
+        Json.obj(
+          ds.resourceType -> ds.asJson(expanded)
+        )
+      }
+      else {
+        Json.obj(
+          "dataSourceReference" -> Json.obj("uri" -> Json.fromString(ds.uri))
+        )
+      }
+    }
+    Map(map.toSeq:_*)
+  }
 
   override def decodeFields(cur: ACursor): Either[DecodingFailure, Resource] = {
     alwaysPromptControls = cur.downField("alwaysPromptControls").as[Boolean].right.get
@@ -78,7 +98,6 @@ class ReportUnitResource(val uri: String, val label: String)(implicit context: R
     var inputControlCur = cur.downField("inputControls").downArray
     var inputs: Seq[InputControlResource] = Seq.empty
     while( inputControlCur.succeeded ) {
-
       decodeReferencedResource[InputControlResource](inputControlCur, "inputControl", "inputControl") match {
         case Right(r) => inputs ++= Seq(r)
         case Left(e) => logger.error(s"Sub-input control loading failure ${e.message}")
@@ -87,6 +106,15 @@ class ReportUnitResource(val uri: String, val label: String)(implicit context: R
     }
     inputControls = inputs
 
+    val dataSourceCur = cur.downField("dataSource")
+    if (dataSourceCur.succeeded) {
+      val dsRefCur = dataSourceCur.downField("dataSourceReference").downField("uri")
+      if (dsRefCur.succeeded)
+        referencedResource[DataSourceResource](dsRefCur.as[String].right.get) match {
+          case Right(r) => dataSource = Some(r)
+          case _ => dataSource = None
+        }
+    }
     Right(this)
   }
 
@@ -103,6 +131,11 @@ class ReportUnitResource(val uri: String, val label: String)(implicit context: R
 
     inputControls.foreach { ic =>
       context.repository.setResource(ic.uri, ic, createFolders = true, overwrite = true)
+    }
+
+    dataSource match {
+      case Some(r) => context.repository.setResource(r.uri, r, createFolders=true, overwrite = true)
+      case _ =>
     }
   }
 }
