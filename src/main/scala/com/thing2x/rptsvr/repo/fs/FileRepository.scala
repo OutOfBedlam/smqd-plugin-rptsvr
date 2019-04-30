@@ -80,7 +80,7 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
   def getContent(path: String): Future[FileContent] = Future {
     val fr = FsFile(path)
 
-    logger.trace(s"------------> getContent path=$path resourceType=${fr.resourceType} contentType=${fr.contentType}")
+    logger.trace(s"get content path=$path resourceType=${fr.resourceType} contentType=${fr.contentType}")
     FileContent(fr.uri, fr.contentFile, fr.contentType)
   }
 

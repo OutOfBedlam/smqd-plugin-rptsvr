@@ -148,26 +148,19 @@ abstract class Resource(implicit context: RepositoryContext) extends StrictLoggi
   //////////////////////////////
   // loading child resource
 
-  // using same field = downField
-  //     dataType/dataType
-  //     dataType/dataTypeReference
-  def decodeReferencedResource[T <: Resource](cur: ACursor, field: String, fieldType: String): Either[DecodingFailure, T] = {
-    decodeReferencedResource(cur, field, field, s"${field}Referece", fieldType)
+  // reference field name = 'fieldName'+"Reference"
+  //     jrxmlFile
+  //     jrxmlFileReference
+  def decodeReferencedResource[T <: Resource](cur: ACursor, fieldName: String, fieldType: String): Either[DecodingFailure, T] = {
+    decodeReferencedResource(cur, fieldName, s"${fieldName}Reference", fieldType)
   }
 
-  // different field, downField
-  //     jrxml/jrxmlFile
-  //     jrxml/jrxmlFileReference
-  def decodeReferencedResource[T <: Resource](cur: ACursor, field: String, downField: String, fieldType: String): Either[DecodingFailure, T] = {
-    decodeReferencedResource(cur, field, field, s"${downField}Referece", fieldType)
-  }
-
-  // different field, downField
-  //     file/fileResource
-  //     file/fileReference
-  def decodeReferencedResource[T <: Resource](cur: ACursor, field: String, resourceFieldName: String, referenceFieldName: String, fieldType: String): Either[DecodingFailure, T] = {
-    val refCur = cur.downField(field).downField(referenceFieldName)
-    val valCur = cur.downField(field).downField(resourceFieldName)
+  // reference field name is not 'fieldName'+"Reference"
+  //     fileResource
+  //     fileReference
+  def decodeReferencedResource[T <: Resource](cur: ACursor, resourceFieldName: String, referenceFieldName: String, fieldType: String): Either[DecodingFailure, T] = {
+    val refCur = cur.downField(referenceFieldName)
+    val valCur = cur.downField(resourceFieldName)
     if (refCur.succeeded) {
       implicit val ec: ExecutionContext = context.executionContext
       import scala.concurrent.duration._
@@ -175,17 +168,17 @@ abstract class Resource(implicit context: RepositoryContext) extends StrictLoggi
       val future = context.repository.getResource(path)
       Await.result(future, 5.seconds) match {
         case Right(r) => Right(r.asInstanceOf[T])
-        case _ =>  Left(DecodingFailure(s"Referenced resource: $field failed to load from $path", Nil))
+        case _ =>  Left(DecodingFailure(s"Referenced resource: $fieldType failed to load from $path", Nil))
       }
     }
     else if (valCur.succeeded) {
       Resource(valCur, fieldType) match {
         case Right(r) => Right(r.asInstanceOf[T])
-        case _ => Left(DecodingFailure(s"Referenced resource: $field failed to decode as $fieldType", Nil))
+        case _ => Left(DecodingFailure(s"Referenced resource: $fieldType failed to decode as $fieldType", Nil))
       }
     }
     else {
-      Left(DecodingFailure(s"Referenced resource: $field failed to load", Nil))
+      Left(DecodingFailure(s"Referenced resource: $fieldType failed to load", Nil))
     }
   }
 

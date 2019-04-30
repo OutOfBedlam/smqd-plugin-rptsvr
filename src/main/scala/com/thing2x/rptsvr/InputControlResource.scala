@@ -90,15 +90,15 @@ class InputControlResource(val uri: String, val label: String)(implicit context:
     }
     visibleColumns = cur.downField("visibleColumns").downArray.as[Option[Seq[String]]].right.get.getOrElse(Seq.empty)
 
-    decodeReferencedResource[DataTypeResource](cur, "dataType", "dataType") match {
+    decodeReferencedResource[DataTypeResource](cur.downField("dataType"), "dataType", "dataType") match {
       case Right(r) => dataType = Some(r)
       case _ => dataType = None
     }
-    decodeReferencedResource[ListOfValuesResource](cur, "listOfValues", "listOfValues") match {
+    decodeReferencedResource[ListOfValuesResource](cur.downField("listOfValues"), "listOfValues", "listOfValues") match {
       case Right(r) => listOfValues = Some(r)
       case _ => listOfValues = None
     }
-    decodeReferencedResource[QueryResource](cur, "query", "query") match {
+    decodeReferencedResource[QueryResource](cur.downField("query"), "query", "query") match {
       case Right(r) => query = Some(r)
       case _ => query = None
     }
