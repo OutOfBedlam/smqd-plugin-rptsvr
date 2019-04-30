@@ -31,7 +31,7 @@ object Resource extends StrictLogging {
       val updateTime = cur.downField("updateTime").as[Option[Long]].right.get
       val description = cur.downField("description").as[Option[String]].right.get
 
-      logger.debug(s"decode json: $resourceType, $uri, $label, $ver, $description")
+      logger.trace(s"decode json uri=$uri resourceType=$resourceType label=$label ver=$ver desc=$description")
       val rt = resourceType.toLowerCase match {
         case "folder" =>     new FolderResource(uri, label)
         case "file" =>       new FileResource(uri, label)

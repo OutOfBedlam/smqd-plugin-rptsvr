@@ -33,24 +33,24 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
     }
   }
 
-  def getResource(path: String, accept: MediaType, expanded: Option[Boolean]): Future[HttpResponse] = {
+  def getResource(path: String, expanded: Option[Boolean]): Future[HttpResponse] = {
     if (expanded.isDefined) {
-      logger.debug(s"get resource >> $path accept=$accept expanded=${expanded.get}")
+      logger.debug(s"get resource >> $path expanded=${expanded.get}")
       repo.getResource(path).map( (StatusCodes.OK, _, expanded.get) )
     }
     else {
-      logger.debug(s"get content  >> $path accept=$accept")
+      logger.debug(s"get content  >> $path")
       repo.getContent(path).map(cr => HttpResponse(StatusCodes.OK, Nil, HttpEntity.fromFile(cr.contentType, cr.file)))
     }
   }
 
   def setResource(path: String, contentType: ContentType, json: Json, createFolders: Boolean, overwrite: Boolean): Future[HttpResponse] = {
-    logger.trace(s"write resource >> $path ${contentType.toString} ${json.noSpaces}")
+    logger.trace(s"set resource >> $path ${contentType.toString} ${json.noSpaces}")
     val mediaType = contentType.mediaType
     val subType = mediaType.subType
     if (mediaType.isApplication && subType.startsWith("repository.") && subType.endsWith("+json")) {
       val resourceType = subType.substring("repository.".length, subType.lastIndexOf("+json"))
-      logger.trace(s"                  resourceType='$resourceType'")
+      logger.trace(s"resourceType='$resourceType' path=$path")
       Resource(json, resourceType) match {
         case Right(resource) =>
           repo.setResource(path, resource, createFolders, overwrite).map( (StatusCodes.Created, _, true) )

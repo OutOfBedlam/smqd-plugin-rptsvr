@@ -20,7 +20,7 @@ package object api {
   val `application/repository.file+json`: MediaType.WithFixedCharset =
     MediaType.applicationWithFixedCharset("repository.file+json", HttpCharsets.`UTF-8`)
 
-  val `application/repository.reportunit+json`: MediaType.WithFixedCharset =
+  val `application/repository.reportUnit+json`: MediaType.WithFixedCharset =
     MediaType.applicationWithFixedCharset("repository.reportunit+json", HttpCharsets.`UTF-8`)
 
   val `application/repository.jrxml+json`: MediaType.WithFixedCharset =
@@ -38,7 +38,7 @@ package object api {
     `application/repository.folder+json`,
     `application/repository.file+json`,
     `application/repository.resourceLookup+json`,
-    `application/repository.reportunit+json`,
+    `application/repository.reportUnit+json`,
     `application/repository.jdbcDataSource+json`,
   )
 
@@ -54,11 +54,12 @@ package object api {
     resource match {
       case _: FolderResource => `application/repository.folder+json`
       case fr: FileResource =>
-        fr.fileType match {
-          case "reportunit" => `application/repository.reportunit+json`
+        fr.fileType.toLowerCase match {
+          case "reportunit" => `application/repository.reportUnit+json`
           case "jrxml" =>      `application/repository.jrxml+json`
           case _ =>            `application/json`
         }
+      case _: ReportUnitResource => `application/repository.reportUnit+json`
       case _ => `application/json`
     }
   }
