@@ -50,16 +50,24 @@ package object api {
     if (filtered.isEmpty) `application/json` else filtered.head
   }
 
-  implicit def asMediaType[T <: Resource](resource: T): MediaType.WithFixedCharset = {
+  // akka-http has issue to match range of content-type https://github.com/akka/akka-http/issues/2126
+  // the specification reads it should comapre content type in case-insensitive way
+  // but current version of akka-http do it in case-sensitive way
+  // so, this is the work around for now: using different variables
+  private val mediaReportUnit = MediaType.applicationWithFixedCharset("repository.reportUnit+json", HttpCharsets.`UTF-8`)
+  private val mediaJdbcDataSource = MediaType.applicationWithFixedCharset("repository.jdbcDataSource+json", HttpCharsets.`UTF-8`)
+
+  implicit def asMediaTypeFromResource[T <: Resource](resource: T): MediaType.WithFixedCharset = {
     resource match {
       case _: FolderResource => `application/repository.folder+json`
       case fr: FileResource =>
         fr.fileType.toLowerCase match {
-          case "reportunit" => `application/repository.reportUnit+json`
+          case "reportunit" =>  mediaReportUnit
           case "jrxml" =>      `application/repository.jrxml+json`
           case _ =>            `application/json`
         }
-      case _: ReportUnitResource => `application/repository.reportUnit+json`
+      case _: ReportUnitResource => mediaReportUnit
+      case _: JdbcDataSourceResource => mediaJdbcDataSource
       case _ => `application/json`
     }
   }
