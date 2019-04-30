@@ -80,9 +80,9 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Resour
     FsFile.mimeTypeOf(typ, name)
   }
 
-  def asResource: Resource = {
+  def asResource(isReferenced: Boolean = false): Resource = {
     val src = Source.fromFile(metaFile, "utf-8")
-    val rsc = Resource(io.circe.parser.parse(src.mkString).right.get)
+    val rsc = Resource(io.circe.parser.parse(src.mkString).right.get, isReferenced = isReferenced)
     src.close()
     rsc.right.get
   }

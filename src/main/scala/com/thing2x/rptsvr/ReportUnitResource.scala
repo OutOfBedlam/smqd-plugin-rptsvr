@@ -121,7 +121,8 @@ class ReportUnitResource(val uri: String, val label: String)(implicit context: R
   def write(writer: ResourceWriter): Unit = {
     writer.writeMeta(this)
     jrxml match {
-      case Some(r) => context.repository.setResource(r.uri, r, createFolders = true, overwrite = true)
+      case Some(r) =>
+        context.repository.setResource(r.uri, r, createFolders = true, overwrite = true)
       case _ =>
     }
 
@@ -129,12 +130,15 @@ class ReportUnitResource(val uri: String, val label: String)(implicit context: R
       context.repository.setResource(r.uri, r, createFolders = true, overwrite = true)
     }
 
-    inputControls.foreach { ic =>
-      context.repository.setResource(ic.uri, ic, createFolders = true, overwrite = true)
+    inputControls.foreach { r =>
+      if (!r.isReferenced)
+        context.repository.setResource(r.uri, r, createFolders = true, overwrite = true)
     }
 
     dataSource match {
-      case Some(r) => context.repository.setResource(r.uri, r, createFolders=true, overwrite = true)
+      case Some(r) =>
+        if (!r.isReferenced)
+          context.repository.setResource(r.uri, r, createFolders=true, overwrite = true)
       case _ =>
     }
   }

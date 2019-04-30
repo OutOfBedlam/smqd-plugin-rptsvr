@@ -10,11 +10,11 @@ import scala.concurrent.{Await, ExecutionContext}
 
 object Resource extends StrictLogging {
 
-  def apply(json: Json, defaultResourceType: String = "file")(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
-    apply(json.hcursor, defaultResourceType)
+  def apply(json: Json, defaultResourceType: String = "file", isReferenced: Boolean = false)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
+    apply(json.hcursor, defaultResourceType, isReferenced)
   }
 
-  def apply(cur: ACursor, defaultResourceType: String)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
+  def apply(cur: ACursor, defaultResourceType: String, isReferenced: Boolean)(implicit context: RepositoryContext): Either[DecodingFailure, Resource] = {
     try {
       val resourceType = cur.downField("resourceType").as[String] match {
         case Right(v) => v.toLowerCase()
@@ -30,14 +30,14 @@ object Resource extends StrictLogging {
 
       logger.trace(s"decode json uri=$uri resourceType=$resourceType label=$label ver=$ver desc=$description")
       val rt = resourceType.toLowerCase match {
-        case "folder"         => new FolderResource(uri, label)
-        case "file"           => new FileResource(uri, label)
-        case "reportunit"     => new ReportUnitResource(uri, label)
-        case "jdbcdatasource" => new JdbcDataSourceResource(uri, label)
-        case "datatype"       => new DataTypeResource(uri, label)
-        case "inputcontrol"   => new InputControlResource(uri, label)
-        case "listofvalues"   => new ListOfValuesResource(uri, label)
-        case "query"          => new QueryResource(uri, label)
+        case "folder"         => if (isReferenced) new FolderResource(uri, label) with ResourceReference else new FolderResource(uri, label)
+        case "file"           => if (isReferenced) new FileResource(uri, label) with ResourceReference else new FileResource(uri, label)
+        case "reportunit"     => if (isReferenced) new ReportUnitResource(uri, label) with ResourceReference else new ReportUnitResource(uri, label)
+        case "jdbcdatasource" => if (isReferenced) new JdbcDataSourceResource(uri, label) with ResourceReference else new JdbcDataSourceResource(uri, label)
+        case "datatype"       => if (isReferenced) new DataTypeResource(uri, label) with ResourceReference else  new DataTypeResource(uri, label)
+        case "inputcontrol"   => if (isReferenced) new InputControlResource(uri, label) with ResourceReference else new InputControlResource(uri, label)
+        case "listofvalues"   => if (isReferenced) new ListOfValuesResource(uri, label) with ResourceReference else new ListOfValuesResource(uri, label)
+        case "query"          => if (isReferenced) new QueryResource(uri, label) with ResourceReference else new QueryResource(uri, label)
       }
       rt.permissionMask = permissionMask.getOrElse(0)
       rt.version = ver.getOrElse(-1)
@@ -66,6 +66,8 @@ abstract class Resource(implicit context: RepositoryContext) extends StrictLoggi
   val label: String
   var permissionMask: Int = 0
   var version: Int = -1
+
+  val isReferenced: Boolean = this.isInstanceOf[ResourceReference]
 
   var description: Option[String] = None
   def description_=(desc: String): Unit = description = Some(desc)
@@ -166,7 +168,7 @@ abstract class Resource(implicit context: RepositoryContext) extends StrictLoggi
       referencedResource(path)
     }
     else if (valCur.succeeded) {
-      Resource(valCur, fieldType) match {
+      Resource(valCur, fieldType, isReferenced = false) match {
         case Right(r) => Right(r.asInstanceOf[T])
         case _ => Left(DecodingFailure(s"Referenced resource: $fieldType failed to decode as $fieldType", Nil))
       }
@@ -179,7 +181,7 @@ abstract class Resource(implicit context: RepositoryContext) extends StrictLoggi
   def referencedResource[T <: Resource](uri: String): Either[DecodingFailure, T] = {
     implicit val ec: ExecutionContext = context.executionContext
     import scala.concurrent.duration._
-    val future = context.repository.getResource(uri)
+    val future = context.repository.getResource(uri, isReferenced = true)
     Await.result(future, 5.seconds) match {
       case Right(r) => Right(r.asInstanceOf[T])
       case _ =>  Left(DecodingFailure(s"Referenced resource failed to load from $uri", Nil))
