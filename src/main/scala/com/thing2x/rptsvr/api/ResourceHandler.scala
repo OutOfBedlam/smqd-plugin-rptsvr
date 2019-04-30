@@ -3,7 +3,6 @@ package com.thing2x.rptsvr.api
 import akka.http.scaladsl.model._
 import com.thing2x.rptsvr._
 import com.thing2x.smqd.Smqd
-import com.typesafe.config.{Config, ConfigRenderOptions}
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 import io.circe.syntax._
@@ -70,23 +69,6 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
     }
   }
 
-//  def setResource(path: String, contentType: ContentType, body: Config, createFolders: Boolean, overwrite: Boolean): Future[HttpResponse] = {
-//    logger.trace(s"write resource >> $path ${contentType.toString} ${body.root.render(ConfigRenderOptions.concise)}")
-//    val mediaType = contentType.mediaType
-//    val subType = mediaType.subType
-//    if (mediaType.isApplication && subType.startsWith("repository.") && subType.endsWith("+json")) {
-//      val resourceType = subType.substring("repository.".length, subType.lastIndexOf("+json"))
-//      logger.trace(s"                  resourceType='$resourceType'")
-//      repo.setResource(path, body, createFolders, overwrite, resourceType).map( (StatusCodes.Created, _, true) )
-//    }
-//    else {
-//      Future{
-//        logger.error(s"Unhandled content type: ${contentType.toString}")
-//        (StatusCodes.BadRequest, Json.obj(("error", Json.fromString(s"Unhandled content type: $contentType"))))
-//      }
-//    }
-//  }
-//
   def deleteResource(path: String): Future[HttpResponse] = {
     repo.deleteResource(path).map { success =>
       if (success) {

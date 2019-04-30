@@ -6,9 +6,10 @@ import akka.util.ByteString
 import com.thing2x.smqd.net.http.HttpServiceContext
 import com.thing2x.smqd.rest.RestController
 import com.thing2x.smqd.util.FailFastCirceSupport
-import com.typesafe.scalalogging.{LazyLogging, StrictLogging}
-import scala.concurrent.duration._
+import com.typesafe.scalalogging.LazyLogging
 import io.circe.Json
+
+import scala.concurrent.duration._
 
 class RestV2Controller(name: String, context: HttpServiceContext) extends RestController(name, context)
   with Directives with FailFastCirceSupport with LazyLogging {
