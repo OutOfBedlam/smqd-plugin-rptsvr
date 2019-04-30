@@ -133,6 +133,33 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
   }
 
   /////////////////////////////////////////////////
+  // write jdbc datasource
+  val jdbcname = "database"
+  "jdbc datasource" should "be written" in {
+    val req = HttpEntity(ContentType(`application/repository.jdbcDataSource+json`),
+      s"""
+         |{
+         |  "version" : -1,
+         |  "permissionMask" : 1,
+         |  "label" : "$jdbcname",
+         |  "uri" : "/$foldername/$jdbcname",
+         |  "driverClass" : "com.database.Driver",
+         |  "password" : "password",
+         |  "username" : "usename",
+         |  "connectionUrl" : "jdbc:thing:driver:1234"
+         |}
+      """.stripMargin)
+    Post(s"/rptsvr/rest_v2/resources/$foldername/$jdbcname?createFolders=true&overwrite=true", req) ~> routes ~> check {
+      status shouldEqual StatusCodes.Created
+      val content = entityAs[String]
+      val json = parser.parse(content).right.get
+      logger.info(json.spaces2)
+      val cur = json.hcursor
+      assert (cur.downField("uri").as[String].right.get == s"/$foldername/$jdbcname")
+    }
+  }
+
+  /////////////////////////////////////////////////
   // write reportunit
   val reportunitname = "rptunit"
 
