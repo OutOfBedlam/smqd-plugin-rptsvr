@@ -51,6 +51,13 @@ object Dependencies {
   ).map( _ % jasperReportVersion )
 
   //
+  // apache poi is required for exporting report in excel format
+  //
+  val poi: Seq[ModuleID] = Seq(
+    "org.apache.poi" % "poi-ooxml" %  "3.17"
+  )
+
+  //
   // !!! add resolver to solve the issue related "com.lowagie" % "itext" % "2.1.7.js6"
   // https://community.jaspersoft.com/questions/1071031/itext-js6-dependency-issue
   //

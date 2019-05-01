@@ -20,7 +20,7 @@ class EngineRepositoryService(jsContext: JasperReportsContext, backend: BackendR
     val persistenceService = PersistenceUtil.getInstance(jsContext).getService(classOf[EngineRepositoryService], resourceType)
     if (persistenceService != null)
     {
-      println(s"********************** $uri")
+      //println(s"********************** $uri")
       val is = repositoryContext.getJasperReportsContext.getValue(uri).asInstanceOf[InputStream]
       if (is != null) {
         val isr = new InputStreamResource
