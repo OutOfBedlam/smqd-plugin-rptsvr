@@ -1,4 +1,14 @@
 .idea/
+.metals/
+.history
+.metadata
+.project
 target/
 src/test/repo/
 src/test/export/
+
+src/main/resources/VERSION.NFO
+
+# macOS
+.DS_Store
+**/.DS_Store
