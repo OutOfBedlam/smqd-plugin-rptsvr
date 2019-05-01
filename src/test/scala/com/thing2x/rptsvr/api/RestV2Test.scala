@@ -8,6 +8,7 @@ import akka.http.scaladsl.model.{ContentType, HttpEntity, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import akka.testkit.TestKit
+import com.thing2x.rptsvr.engine.Engine
 import com.thing2x.smqd.net.http.HttpService
 import com.thing2x.smqd.{Smqd, SmqdBuilder}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -218,5 +219,10 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
       assert (resources.right.get.nonEmpty)
 
     }
+  }
+
+  "report unit" should "generate pdf" in {
+    val engine = Engine.findInstance(smqdInstance)
+    engine.generate()
   }
 }

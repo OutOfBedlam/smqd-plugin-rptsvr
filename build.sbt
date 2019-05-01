@@ -8,6 +8,9 @@ lazy val root = (project in file("."))
     scalacOptions in ThisBuild ++= Seq("-feature", "-deprecation"),
   )
   .settings(
+    fork in Test := true
+  )
+  .settings(
     libraryDependencies ++= Dependencies.smqd ++
       Dependencies.test ++
       Dependencies.slick ++
