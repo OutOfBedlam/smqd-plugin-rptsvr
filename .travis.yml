@@ -2,23 +2,27 @@ sudo: false
 language: scala
 jdk: oraclejdk8
 scala:
-  - 2.12.8
+- 2.12.8
 cache:
   directories:
-    - "$HOME/.iivy2/cache"
-    - "$HOME/.sbt"
+  - "$HOME/.iivy2/cache"
+  - "$HOME/.sbt"
 before_cache:
-  - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
-  - find $HOME/.sbt -name "*.lock" -print -delete
-  - rm -f $HOME/.ivy2/.sbt.ivy.lock
+- find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+- find $HOME/.sbt -name "*.lock" -print -delete
+- rm -f $HOME/.ivy2/.sbt.ivy.lock
 before_install:
-  - |
-    if [[ $TRAVIS_PULL_REQUEST == false ]]; then
-      openssl aes-256-cbc -K $encrypted_0ae33bd734a9_key -iv $encrypted_0ae33bd734a9_iv -in travis/secrets.tar.enc -out travis/local.secrets.tar -d;
-      tar xv -C travis -f travis/local.secrets.tar;
-    fi
-#after_success:
-#  - |
-#    if [[ $TRAVIS_PULL_REQUEST == false ]]; then
-#      sbt ++$TRAVIS_SCALA_VERSION publishSigned;
-#    fi
+- |
+  if [[ $TRAVIS_PULL_REQUEST == false ]]; then
+    openssl aes-256-cbc -K $encrypted_0ae33bd734a9_key -iv $encrypted_0ae33bd734a9_iv -in travis/secrets.tar.enc -out travis/local.secrets.tar -d;
+    tar xv -C travis -f travis/local.secrets.tar;
+  fi
+after_success:
+- |-
+  if [[ $TRAVIS_PULL_REQUEST == false ]]; then
+    sbt ++$TRAVIS_SCALA_VERSION publishSigned;
+  fi
+env:
+  global:
+  - secure: e4+oOnF99brbmfLMNc6dyHCBmL8XQtta0ILwov0fP10VmQLm1lEOmU+Q27Z3XlmeFolnw4HK9PrS3KtAAU8XNiJOPdrSMy8JaolzTV7It1WYdlBvmCgi9k00TBdZqWwUSS+/uHD1TbC1fb42GEtQTeh2S2wtJz5YoME5qjZSGPnXTbqgc9Vz7Z9KRVagD0v15mpjJi5MTlPE2MZZmJGcCogTHSShAz9pIoKa5V7KTrGeXV+ILaB3DE0eSTDMaPXTnaDsbBpyouKcP1+Xuzitq6yTtJo9aiCrzijEsLdXoBbbhw9aWsBjLQ//d9DDDEHw3FNoGCDvudi7m64GhNXfuuLnjVxWc5NMNX/DEQbicr0cTabkjYv1dTGfvkHksBKHwCZNloDDO1Y/k80RGMC/hqSblXr0aSRjyCyTpR8u8SwwqRYxnzPuULXOkepPdfqmRnUAP6YU14kmnrS4bB6jnutIvhgDkKSm2s7cUSNXQfq/8TRR1MM6njuEB7z3mJxZzjgEwDS9eh3FiR8y5VsMtOtSft2nAfkQr+YSWbUuE3ZT2Z3pvchiugTcbtP+Iuh/s+maJyFe71DoK4qDuoSa3KvJWNl13AnWHFMrY3a0GldBxAtXxKkX66ywOqTH3nk0UPScTRHQrK9wK3XmcZESegJBD94E6KKWuQG6O4TyFq0=
+  - secure: MRz7J/t+zmedfsndyDw8lPXvlFahgUiyZ+KYpYjQYgulP0agZlQviTHdkkiMsfGwiarjlRHR6lfQVUQ0m2dxLGgoxAXAoDXsuCxBgHDiloT2fVWar/9Tp/pkAxFqnpruaOyldlZg/SnRqBVOilZQNijKAzhfIgqBrMpNPkM3oA6IVrXpHuswcU7B4DnMPTd1CLEp8kmcWuEpqvJ2yQpOx0ZfQ4jwMPnUAFox07hj2c1ic4XbHNQYdfdqlih46W3ilAfbsFFrA6Nd/ctPyj10905SaK+EpRdtE8sPR/BV4qxVD0CAyFDw+gebmhLM4BA9VMda4v3+0D1Ou1eM1N+bLSTQDDMLeDRCr3RaSH+jdcLDrYoHj2I5dLWBx444u7vNwgH7vJYdXFD268TnU0pfbki2BIrE/oJSMuKSraD9mUd2EXynjKkRdL9nS0+4vPqGfZ5JppsY4cyKzu/wPWqubhGwZO+KrEZ1omHxKoErjanX9Y5/KDaYWNyO+GSenk/uFonS7dde+bkQEklYaZS61k+eXS95t9ymQn3n5ryR2CS+CflKC6VPF+1OBsPYRWnlhdj/nlNrtg/NiYdQLV7YdqQUNhb5kR049AGvOmlZ2AlFxhYf9CpAEcyud6z+b0FgTBaEGe2LAfPD2OJLc07E5v4J85t5PtyQ1c0dkfHhWT0=
