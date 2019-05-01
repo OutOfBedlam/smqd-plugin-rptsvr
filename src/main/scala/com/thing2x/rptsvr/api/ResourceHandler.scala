@@ -39,7 +39,12 @@ class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) ex
     }
     else {
       logger.debug(s"get content  >> $path")
-      repo.getContent(path).map(cr => HttpResponse(StatusCodes.OK, Nil, HttpEntity.fromFile(cr.contentType, cr.file)))
+      repo.getContent(path).map{
+        case Right(cr) => HttpResponse(StatusCodes.OK, Nil, HttpEntity(cr.contentType, cr.source))
+        case Left(ex)  =>
+          logger.warn(s"get content failure: $path", ex)
+          (StatusCodes.InternalServerError, ex)
+      }
     }
   }
 

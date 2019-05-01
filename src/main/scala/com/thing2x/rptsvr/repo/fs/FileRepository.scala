@@ -4,6 +4,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import akka.stream.scaladsl.{FileIO, Source}
 import com.thing2x.rptsvr._
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
@@ -77,11 +78,15 @@ class FileRepository(name: String, smqd: Smqd, config: Config) extends Service(n
     }
   }
 
-  def getContent(path: String): Future[FileContent] = Future {
-    val fr = FsFile(path)
-
-    logger.trace(s"get content path=$path resourceType=${fr.resourceType} contentType=${fr.contentType}")
-    FileContent(fr.uri, fr.contentFile, fr.contentType)
+  def getContent(path: String): Future[Either[Throwable, FileContent]] = Future {
+    try {
+      val fr = FsFile(path)
+      logger.trace(s"get content path=$path resourceType=${fr.resourceType} contentType=${fr.contentType}")
+      Right(FileContent(fr.uri, FileIO.fromPath(fr.contentFile.toPath), fr.contentType))
+    }
+    catch {
+      case ex: Throwable => Left(ex)
+    }
   }
 
   def deleteResource(path: String): Future[Boolean] = Future {

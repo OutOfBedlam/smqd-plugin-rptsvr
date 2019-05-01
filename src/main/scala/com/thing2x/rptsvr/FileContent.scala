@@ -1,7 +1,7 @@
 package com.thing2x.rptsvr
 
-import java.io.File
-
 import akka.http.scaladsl.model.ContentType
+import akka.stream.scaladsl.Source
+import akka.util.ByteString
 
-case class FileContent(uri: String, file: File, contentType: ContentType)
+case class FileContent(uri: String, source: Source[ByteString, _], contentType: ContentType)
