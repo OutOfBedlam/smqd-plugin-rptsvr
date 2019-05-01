@@ -3,6 +3,7 @@ package com.thing2x.rptsvr
 import java.io.FileNotFoundException
 
 import akka.http.scaladsl.model._
+import com.thing2x.rptsvr.Repository.{ResourceAlreadyExistsExeption, ResourceNotFoundException}
 import com.thing2x.rptsvr.api.ResourceHandler.ResourceError
 import io.circe.Json
 import io.circe.generic.auto._

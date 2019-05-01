@@ -1,10 +1,8 @@
 package com.thing2x.rptsvr
 
-import java.text.SimpleDateFormat
-
 import com.thing2x.smqd.Smqd
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object Repository {
   def findInstance(smqd: Smqd): Repository = {
@@ -13,6 +11,11 @@ object Repository {
       repositoryClass.isAssignableFrom(pd.clazz)
     }.map(_.instances.head.instance.asInstanceOf[Repository]).get
   }
+
+  class RepositoryException extends Exception
+
+  class ResourceNotFoundException(uri: String) extends Exception
+  class ResourceAlreadyExistsExeption(uri: String) extends Exception
 }
 
 trait Repository {
@@ -26,15 +29,3 @@ trait Repository {
 
   def deleteResource(path: String): Future[Boolean]
 }
-
-trait RepositoryContext {
-  val dateFormat: SimpleDateFormat
-  val datetimeFormat: SimpleDateFormat
-  val repository: Repository
-  val executionContext: ExecutionContext
-}
-
-class RepositoryException extends Exception
-
-class ResourceNotFoundException(uri: String) extends Exception
-class ResourceAlreadyExistsExeption(uri: String) extends Exception

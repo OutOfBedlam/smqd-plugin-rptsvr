@@ -133,7 +133,7 @@ class FsFile(file: File)(implicit context: FileRepositoryContext) extends Resour
         """.stripMargin).right.get
 
       val resource = Resource(json).right.get
-      context.repository.setResource(uri, resource, true, true)
+      context.repository.setResource(uri, resource, createFolders = true, overwrite = true)
       true
     }
     else {

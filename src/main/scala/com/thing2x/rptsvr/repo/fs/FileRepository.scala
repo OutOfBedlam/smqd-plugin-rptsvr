@@ -4,7 +4,8 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import akka.stream.scaladsl.{FileIO, Source}
+import akka.stream.scaladsl.FileIO
+import com.thing2x.rptsvr.Repository.ResourceNotFoundException
 import com.thing2x.rptsvr._
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
