@@ -21,23 +21,25 @@ class RestV2Controller(name: String, context: HttpServiceContext) extends RestCo
 
   override def mediaTypes: List[MediaType.WithFixedCharset] = resourceMediaTypes
 
+  val restVersion: String = "rest_v2"
+
   override def routes: Route = {
-    (path("serverInfo") & ignoreTrailingSlash) {
+    (path(restVersion / "serverInfo") & ignoreTrailingSlash) {
       get {
         complete(serverInfoHandler.getServerInfo)
       }
     } ~
-    path("users" / Segment) { username =>
+    path(restVersion / "users" / Segment) { username =>
       get {
         complete(userHandler.getUser(username, None))
       }
     } ~
-    path("organizations"/ Segment / "users" / Segment) { (organization, username) =>
+    path(restVersion / "organizations"/ Segment / "users" / Segment) { (organization, username) =>
       get {
         complete(userHandler.getUser(username, Some(organization)))
       }
     } ~
-    path("resources" / Segments ) { path =>
+    path(restVersion / "resources" / Segments ) { path =>
       val uri = path.mkString("/", "/", "")
 
       (get & parameters('expanded.as[Boolean].?)) { expanded =>
@@ -52,9 +54,22 @@ class RestV2Controller(name: String, context: HttpServiceContext) extends RestCo
         complete(resourceHandler.deleteResource(uri))
       }
     } ~
-    path( "resources") {
+    path( restVersion / "resources") {
       (get & parameters('folderUri, 'recursive.as[Boolean], 'sortBy, 'limit.as[Int])) { (uri, recursive, sortBy, limit) =>
         complete(resourceHandler.lookupResource(uri, recursive, sortBy, limit))
+      }
+    } ~
+    path( "j_spring_security_check") {
+      ignoreTrailingSlash {
+        parameters( 'j_username, 'j_password, 'forceDefaultRedirect.as[Boolean].?, 'userLocale.?, 'userTimezone.?) {
+          case (username, password, forceDefaultRedirect, userLocale, userTimezone) =>
+            complete(StatusCodes.OK, Json.obj(("success", Json.fromBoolean(true))))
+          case _ =>
+            complete(StatusCodes.BadRequest)
+        } ~
+          parameters('ticket) { ticket =>
+            complete(StatusCodes.InternalServerError)
+          }
       }
     } ~
     {
