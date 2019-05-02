@@ -1,6 +1,6 @@
 package com.thing2x.rptsvr.export
 
-import java.io.{ByteArrayOutputStream, File, OutputStream}
+import java.io.{ByteArrayOutputStream, File}
 
 import akka.util.ByteString
 import com.thing2x.rptsvr.engine.ReportExporter

@@ -27,6 +27,8 @@ import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jasperreports.engine._
+import net.sf.jasperreports.engine.fonts.{FontExtensionsContainer, FontExtensionsRegistry, FontFamily, SimpleFontExtensionsRegistryFactory}
+import net.sf.jasperreports.extensions.ExtensionsEnvironment
 import net.sf.jasperreports.repo.{PersistenceServiceFactory, RepositoryService}
 
 import scala.collection.JavaConverters._
@@ -68,6 +70,10 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
   implicit val materializer: Materializer = backend.context.materializer
 
   override def start(): Unit = {
+    val fontFamilies = ExtensionsEnvironment.getExtensionsRegistry.getExtensions(classOf[FontFamily]).asScala
+    fontFamilies.foreach { fm =>
+      logger.info(s"** Font '${fm.getName}' pdfEncoding='${fm.getPdfEncoding}' isPdfEmbedded=${fm.isPdfEmbedded}")
+    }
   }
 
   override def stop(): Unit = {
@@ -135,7 +141,10 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
 
   private def compile(is: InputStream): Future[JasperReport] = Future {
     val compiler = JasperCompileManager.getInstance(jsContext)
-    compiler.compile(is)
+    val report = compiler.compile(is)
+    // save JasperReport to cache (java object serialization)
+    //net.sf.jasperreports.engine.util.JRSaver.saveObject(report, new File("file_loc"))
+    report
   }
 
   private def dataSource(dsResource: Option[DataSourceResource]): Future[JRDataSource] = Future {

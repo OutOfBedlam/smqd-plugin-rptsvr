@@ -231,7 +231,7 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
   }
 
   implicit val timeout: FiniteDuration = 5.seconds
-  private val params = Map("GREETING" -> "Hello-world (engine)")
+  private val params = Map("GREETING" -> "Hello-world (한국어 서체 사용)")
 
   "report unit" should "generate pdf" in {
     engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.pdf, new File(exportDir, "test_result.pdf").getPath)

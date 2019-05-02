@@ -50,6 +50,17 @@ object Dependencies {
     "net.sf.jasperreports" % "jasperreports",
   ).map( _ % jasperReportVersion )
 
+  // JasperReport requires dependencies
+  // https://community.jaspersoft.com/wiki/jasperreports-library-requirements
+  
+  val rhino: Seq[ModuleID] = Seq(
+    "org.mozilla" % "rhino" % "1.7.10"
+  )
+
+  val jfreechart: Seq[ModuleID] = Seq(
+    "org.jfree" % "jfreechart" % "1.5.0"
+  )
+
   //
   // apache poi is required for exporting report in excel format
   //

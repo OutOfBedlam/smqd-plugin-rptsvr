@@ -18,6 +18,8 @@ lazy val root = (project in file("."))
       Dependencies.slick ++
       Dependencies.quartz ++
       Dependencies.h2db ++
+      Dependencies.rhino ++
+      Dependencies.jfreechart ++
       Dependencies.jasperreports ++ Dependencies.poi,
     resolvers += Dependencies.smqdResolver,
     resolvers += Dependencies.jasperreportsResolver,
