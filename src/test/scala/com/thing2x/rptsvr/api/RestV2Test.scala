@@ -47,8 +47,6 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
   var exportDir: File = _
   var repoDir: File = _
 
-  val dbserver = new SampleDatabase
-
   override def createActorSystem(): ActorSystem = ActorSystem(actorSystemNameFrom(getClass), config)
 
   implicit def default(implicit system: ActorSystem): RouteTestTimeout = RouteTestTimeout(5.seconds)
@@ -77,7 +75,7 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
   /////////////////////////////////////////////////
   // test jdbc connection
   "database test" should "pass" in {
-    val conn = DriverManager.getConnection(s"jdbc:h2:tcp://localhost:${dbserver.port}/mem:sampledb", "sa", "sa")
+    val conn = DriverManager.getConnection(s"jdbc:h2:tcp://localhost:9099/mem:sampledb", "sa", "sa")
     val stmt = conn.prepareStatement("select name, cost, email from sample_table")
     val rset = stmt.executeQuery()
     while( rset.next() ) {

@@ -3,7 +3,7 @@ val versionString = "0.1.0-SNAPSHOT"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "smqd-rpt-svr",
+    name := "smqd-plugin-rptsvr",
     organization := "com.thing2x",
     version := versionString,
     scalaVersion := Dependencies.Versions.scala,

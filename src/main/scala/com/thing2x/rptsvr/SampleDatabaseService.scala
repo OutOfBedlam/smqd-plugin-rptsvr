@@ -12,13 +12,14 @@ class SampleDatabaseService(name: String, smqd: Smqd, config: Config) extends Se
   private val initTcpPort = config.getOptionInt("tcp.port").getOrElse(0)
 
   private val tcpServer = org.h2.tools.Server.createTcpServer(
-    Array("-tcp", "-tcpPort", initTcpPort.toString, "-tcpAllowOthers", "-tcpPassword", "sa"):_*)
+    Array("-tcpPort", initTcpPort.toString, "-tcpAllowOthers", "-tcpPassword", "sa", "-tcpDaemon"):_*)
 
   def tcpPort: Int = tcpServer.getPort
 
   override def start(): Unit = {
     tcpServer.start()
 
+    logger.info(s"SampleDatabase service: ${tcpServer.getStatus}")
     // H2Database setup
     val ds = new JdbcDataSource
     ds.setURL(s"jdbc:h2:mem:sampledb;mode=MySQL;DB_CLOSE_DELAY=-1")
