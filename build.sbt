@@ -19,9 +19,10 @@ lazy val root = (project in file("."))
       Dependencies.quartz ++
       Dependencies.h2db ++
       Dependencies.rhino ++
+      Dependencies.fonts ++
       Dependencies.jfreechart ++
       Dependencies.jasperreports ++ Dependencies.poi,
-    resolvers += Dependencies.smqdResolver,
+    resolvers ++= Seq(Resolver.sonatypeRepo("public"), Resolver.sonatypeRepo("releases")),
     resolvers += Dependencies.jasperreportsResolver,
   ).settings(
     // Publishing

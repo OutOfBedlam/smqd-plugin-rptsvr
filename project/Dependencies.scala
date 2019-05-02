@@ -9,13 +9,9 @@ object Dependencies {
     //"com.thing2x" %% "smqd-core" % "0.4.12" withSources(),
   )
 
-  def smqdResolver: Resolver = {
-    if (Dependencies.smqd.seq.exists(_.revision.contains("-SNAPSHOT")))
-      Resolver.sonatypeRepo("public")
-    else
-      Resolver.sonatypeRepo("releases")
-  }
-
+  val fonts: Seq[ModuleID] = Seq(
+    "com.thing2x" %% "jasperreports-font-nanum" % "0.1.0-SNAPSHOT" changing()
+  )
 
   val test: Seq[ModuleID] = Seq(
     "org.scalatest" %% "scalatest" % "3.0.5",

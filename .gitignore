@@ -4,6 +4,7 @@
 .metadata
 .project
 target/
+travis/local.secrets.tar
 src/test/repo/
 src/test/export/
 
