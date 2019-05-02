@@ -33,7 +33,6 @@ lazy val root = (project in file("."))
       else
         Some("releases" at nexus + "service/local/staging/deploy/maven2")
     },
-    //credentials += Credentials(Path.userHome / ".sbt" / "sonatype_credentials"),
     credentials += Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org",
       sys.env.getOrElse("SONATYPE_USER", ""), sys.env.getOrElse("SONATYPE_PASS", "")),
     homepage := Some(url("https://github.com/smqd/")),
