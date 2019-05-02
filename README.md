@@ -12,3 +12,11 @@
 ```
 
 - This report server is developed and test with TIBCO Jaspersoft Studio 6.8.0
+
+#### Font extension
+
+To use additional fonts, add dependencies in build.sbt
+
+```
+libraryDependencies += "com.thing2x" %% "jasperreports-font-nanum" % "0.1.0-SNAPSHOT"
+```

@@ -44,18 +44,22 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
 
   var engine: ReportEngine = _
   var exportDir: File = _
+  var repoDir: File = _
 
   override def createActorSystem(): ActorSystem = ActorSystem(actorSystemNameFrom(getClass), config)
 
   implicit def default(implicit system: ActorSystem): RouteTestTimeout = RouteTestTimeout(5.seconds)
 
   override def beforeAll(): Unit = {
-    smqdInstance = new SmqdBuilder(config).setActorSystem(system).build()
-    smqdInstance.start()
-    routes = smqdInstance.service("report-api").get.asInstanceOf[HttpService].routes
+    repoDir = new File("./src/test/repo")
+    if (!repoDir.exists()) repoDir.mkdir()
 
     exportDir = new File("./src/test/export")
     if (!exportDir.exists) exportDir.mkdir()
+
+    smqdInstance = new SmqdBuilder(config).setActorSystem(system).build()
+    smqdInstance.start()
+    routes = smqdInstance.service("report-api").get.asInstanceOf[HttpService].routes
 
     engine = ReportEngine.findInstance(smqdInstance)
   }
