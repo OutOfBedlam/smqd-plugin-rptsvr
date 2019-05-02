@@ -8,8 +8,8 @@ import akka.http.scaladsl.model.{ContentType, HttpEntity, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import akka.testkit.TestKit
-import com.thing2x.rptsvr.engine.Engine
-import com.thing2x.rptsvr.engine.Engine.ExportFormat
+import com.thing2x.rptsvr.engine.ReportEngine
+import com.thing2x.rptsvr.engine.ReportEngine.ExportFormat
 import com.thing2x.smqd.net.http.HttpService
 import com.thing2x.smqd.{Smqd, SmqdBuilder}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -42,7 +42,7 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
   var routes: Route = _
   var shutdownPromose: Promise[Boolean] = Promise[Boolean]
 
-  var engine: Engine = _
+  var engine: ReportEngine = _
   var exportDir: File = _
 
   override def createActorSystem(): ActorSystem = ActorSystem(actorSystemNameFrom(getClass), config)
@@ -57,7 +57,7 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
     exportDir = new File("./src/test/export")
     if (!exportDir.exists) exportDir.mkdir()
 
-    engine = Engine.findInstance(smqdInstance)
+    engine = ReportEngine.findInstance(smqdInstance)
   }
 
   override def afterAll(): Unit = {
@@ -231,40 +231,45 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
   }
 
   implicit val timeout: FiniteDuration = 5.seconds
+  private val params = Map("GREETING" -> "Hello-world (engine)")
 
   "report unit" should "generate pdf" in {
-    engine.exportReportToFileSync(s"/$foldername/$reportunitname", ExportFormat.pdf, new File(exportDir, "test_result.pdf").getPath)
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.pdf, new File(exportDir, "test_result.pdf").getPath)
   }
 
   it should "generate html" in {
-    engine.exportReportToFileSync(s"/$foldername/$reportunitname", ExportFormat.html, new File(exportDir, "test_result.html").getPath)
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.html, new File(exportDir, "test_result.html").getPath)
   }
 
   it should "export as docx" in {
-    engine.exportReportToFileSync(s"/$foldername/$reportunitname", ExportFormat.docx,  new File(exportDir, "test_result.docx").getPath)
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.docx,  new File(exportDir, "test_result.docx").getPath)
   }
 
   it should "export as xls" in {
-    engine.exportReportToFileSync(s"/$foldername/$reportunitname", ExportFormat.xls,  new File(exportDir, "test_result.xls").getPath)
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.xls,  new File(exportDir, "test_result.xls").getPath)
   }
 
   it should "export as rtf" in {
-    engine.exportReportToFileSync(s"/$foldername/$reportunitname", ExportFormat.rtf,  new File(exportDir, "test_result.rtf").getPath)
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.rtf,  new File(exportDir, "test_result.rtf").getPath)
+  }
+
+  it should "export as odt" in {
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.odt,  new File(exportDir, "test_result.odt").getPath)
   }
 
   it should "export as xml" in {
-    engine.exportReportToFileSync(s"/$foldername/$reportunitname", ExportFormat.xml,  new File(exportDir, "test_result.xml").getPath)
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.xml,  new File(exportDir, "test_result.xml").getPath)
   }
 
   it should "export as pptx" in {
-    engine.exportReportToFileSync(s"/$foldername/$reportunitname", ExportFormat.pptx,  new File(exportDir, "test_result.pptx").getPath)
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.pptx,  new File(exportDir, "test_result.pptx").getPath)
   }
 
   it should "export as text" in {
-    engine.exportReportToFileSync(s"/$foldername/$reportunitname", ExportFormat.text,  new File(exportDir, "test_result.txt").getPath)
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.text,  new File(exportDir, "test_result.txt").getPath)
   }
 
   it should "export as csv" in {
-    engine.exportReportToFileSync(s"/$foldername/$reportunitname", ExportFormat.csv, new File(exportDir, "test_result.csv").getPath)
+    engine.exportReportToFileSync(s"/$foldername/$reportunitname", params, ExportFormat.csv, new File(exportDir, "test_result.csv").getPath)
   }
 }

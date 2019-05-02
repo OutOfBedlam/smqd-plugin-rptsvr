@@ -1,9 +1,11 @@
 
+val versionString = "0.1.0-SNAPSHOT"
+
 lazy val root = (project in file("."))
   .settings(
     name := "smqd-rpt-svr",
     organization := "com.thing2x",
-    version := "0.1",
+    version := versionString,
     scalaVersion := "2.12.8",
     scalacOptions in ThisBuild ++= Seq("-feature", "-deprecation"),
   )
