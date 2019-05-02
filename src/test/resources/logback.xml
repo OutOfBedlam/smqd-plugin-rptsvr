@@ -11,4 +11,5 @@
 
     <logger name="com.thing2x.rptsvr" level="TRACE"/>
     <logger name="net.sf.jasperreports" level="DEBUG"/>
+    <logger name="org.h2" level="DEBUG"/>
 </configuration>

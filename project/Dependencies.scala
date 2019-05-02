@@ -2,6 +2,13 @@ import sbt._
 
 object Dependencies {
 
+  object Versions {
+    val scala = "2.12.8"
+    val akka = "2.5.21"
+    val akkaHttp = "10.1.7"
+    val alpakka = "0.20"
+  }
+
   val smqd: Seq[ModuleID] = Seq(
     ////// if snapshot version
     "com.thing2x" %% "smqd-core" % "0.4.13-SNAPSHOT" changing() withSources(),
@@ -15,7 +22,7 @@ object Dependencies {
 
   val test: Seq[ModuleID] = Seq(
     "org.scalatest" %% "scalatest" % "3.0.5",
-    "com.typesafe.akka" %% "akka-http-testkit" % "10.1.5",
+    "com.typesafe.akka" %% "akka-http-testkit" % Versions.akkaHttp,
     "com.typesafe.akka" %% "akka-testkit" % "2.5.17",
   ).map(_ % Test)
 

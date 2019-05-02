@@ -1,6 +1,7 @@
 package com.thing2x.rptsvr.api
 
 import java.io.File
+import java.sql.DriverManager
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.headers.RawHeader
@@ -46,6 +47,8 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
   var exportDir: File = _
   var repoDir: File = _
 
+  val dbserver = new SampleDatabase
+
   override def createActorSystem(): ActorSystem = ActorSystem(actorSystemNameFrom(getClass), config)
 
   implicit def default(implicit system: ActorSystem): RouteTestTimeout = RouteTestTimeout(5.seconds)
@@ -69,6 +72,23 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
       smqdInstance.stop()
       TestKit.shutdownActorSystem(system)
     }
+  }
+
+  /////////////////////////////////////////////////
+  // test jdbc connection
+  "database test" should "pass" in {
+    val conn = DriverManager.getConnection(s"jdbc:h2:tcp://localhost:${dbserver.port}/mem:sampledb", "sa", "sa")
+    val stmt = conn.prepareStatement("select name, cost, email from sample_table")
+    val rset = stmt.executeQuery()
+    while( rset.next() ) {
+      val name = rset.getString(1)
+      val cost = rset.getInt(2)
+      val email = rset.getString(3)
+      logger.info(s"---> $name  $cost  $email")
+    }
+    rset.close()
+    stmt.close()
+    conn.close()
   }
 
   /////////////////////////////////////////////////
@@ -157,10 +177,10 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
          |  "permissionMask" : 1,
          |  "label" : "$jdbcname",
          |  "uri" : "/$foldername/$jdbcname",
-         |  "driverClass" : "com.database.Driver",
-         |  "password" : "password",
-         |  "username" : "usename",
-         |  "connectionUrl" : "jdbc:thing:driver:1234"
+         |  "driverClass" : "org.h2.Driver",
+         |  "password" : "sa",
+         |  "username" : "sa",
+         |  "connectionUrl" : "jdbc:h2:tcp://localhost:9099/mem:sampledb"
          |}
       """.stripMargin)
     Post(s"/rptsvr/rest_v2/resources/$foldername/$jdbcname?createFolders=true&overwrite=true", req) ~> routes ~> check {

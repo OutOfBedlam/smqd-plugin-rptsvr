@@ -6,7 +6,7 @@ lazy val root = (project in file("."))
     name := "smqd-rpt-svr",
     organization := "com.thing2x",
     version := versionString,
-    scalaVersion := "2.12.8",
+    scalaVersion := Dependencies.Versions.scala,
     scalacOptions in ThisBuild ++= Seq("-feature", "-deprecation"),
   )
   .settings(
