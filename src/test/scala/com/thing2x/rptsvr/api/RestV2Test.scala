@@ -10,8 +10,8 @@ import akka.http.scaladsl.model.{ContentType, HttpEntity, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import akka.testkit.TestKit
-import com.thing2x.rptsvr.engine.{Report, ReportEngine}
 import com.thing2x.rptsvr.engine.ReportEngine.ExportFormat
+import com.thing2x.rptsvr.engine.{Report, ReportEngine}
 import com.thing2x.smqd.net.http.HttpService
 import com.thing2x.smqd.{Smqd, SmqdBuilder}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -19,8 +19,8 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe.{Json, parser}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
-import scala.concurrent.Promise
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Promise}
 import scala.io.Source
 
 class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll with Matchers with StrictLogging {
@@ -273,10 +273,14 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
 
   "report unit" should "be instancitated" in {
     report = engine.report(s"/$foldername/$reportunitname")
-  }
+    val tick = System.currentTimeMillis
+    val jsReport = Await.result(report.compile, 5.seconds)
 
-  it should "generate pdf" in {
-    report.exportReportToFileSync(params, ExportFormat.pdf, new File(exportDir, "test_result.pdf").getPath)
+    logger.info(
+      s"""report compile time: ${System.currentTimeMillis - tick}ms.
+         |Compiler: ${jsReport.getCompilerClass}
+         |${jsReport.getPropertiesMap.toString}
+         |""".stripMargin)
   }
 
   it should "generate html" in {
@@ -313,5 +317,9 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
 
   it should "export as csv" in {
     report.exportReportToFileSync(params, ExportFormat.csv, new File(exportDir, "test_result.csv").getPath)
+  }
+
+  it should "generate pdf" in {
+    report.exportReportToFileSync(params, ExportFormat.pdf, new File(exportDir, "test_result.pdf").getPath)
   }
 }

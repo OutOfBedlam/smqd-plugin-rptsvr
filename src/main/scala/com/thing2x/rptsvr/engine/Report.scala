@@ -21,7 +21,7 @@ import akka.stream.Materializer
 import akka.util.ByteString
 import com.thing2x.rptsvr.engine.ReportEngine.ExportFormat
 import com.typesafe.scalalogging.StrictLogging
-import net.sf.jasperreports.engine.{JasperFillManager, JasperPrint, SimpleJasperReportsContext}
+import net.sf.jasperreports.engine.{JasperFillManager, JasperPrint, JasperReport, SimpleJasperReportsContext}
 import net.sf.jasperreports.repo.{PersistenceServiceFactory, RepositoryService}
 
 import scala.collection.JavaConverters._
@@ -53,7 +53,7 @@ class Report(engine: ReportEngine, val reportUnitUri: String)(implicit ec: Execu
 
   private var _compiledReportUnit: Option[Future[ReportUnitCompiled]] = None
 
-  def compiledReportUnit: Future[ReportUnitCompiled] = synchronized {
+  private def compile0: Future[ReportUnitCompiled] = synchronized {
     if (_compiledReportUnit.isEmpty) {
       val result = engine.loadReportUnit(this) map { cru =>
         // set resources
@@ -67,9 +67,13 @@ class Report(engine: ReportEngine, val reportUnitUri: String)(implicit ec: Execu
     _compiledReportUnit.get
   }
 
+  def compile: Future[JasperReport] = {
+    compile0.map(_.jsReport)
+  }
+
   def fill(parameters: Map[String, Any]): Future[JasperPrint] = {
     val compiled = for {
-      cru <- compiledReportUnit
+      cru <- compile0
       ds <- engine.dataSource(cru.dataSource)
       jdbcConn <- engine.jdbcDataSource(cru.dataSource)
     } yield (cru.jsReport, ds, jdbcConn)
