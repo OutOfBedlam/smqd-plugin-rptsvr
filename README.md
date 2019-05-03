@@ -18,5 +18,5 @@
 To use additional fonts, add dependencies in build.sbt
 
 ```
-libraryDependencies += "com.thing2x" %% "jasperreports-font-nanum" % "0.1.0-SNAPSHOT"
+libraryDependencies += "com.thing2x" %% "jasperreports-font-nanum" % "0.2.0"
 ```
