@@ -1,7 +1,7 @@
 package com.thing2x.rptsvr.api
 
 import java.io.File
-import java.sql.{Driver, DriverManager}
+import java.sql.Driver
 import java.util.Properties
 
 import akka.actor.ActorSystem
