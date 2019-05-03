@@ -15,14 +15,12 @@
 
 package com.thing2x.rptsvr.engine
 
-import java.io.File
 import java.sql.{Connection, Driver}
 import java.util.Properties
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.StreamConverters
 import akka.util.ByteString
-import com.thing2x.rptsvr.engine.ReportEngine.ExportFormat
 import com.thing2x.rptsvr.{DataSourceResource, JdbcDataSourceResource, ReportUnitResource, Repository}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
@@ -31,11 +29,10 @@ import com.typesafe.scalalogging.StrictLogging
 import net.sf.jasperreports.engine._
 import net.sf.jasperreports.engine.fonts.FontFamily
 import net.sf.jasperreports.extensions.ExtensionsEnvironment
-import net.sf.jasperreports.repo.{PersistenceServiceFactory, RepositoryService}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 object ReportEngine {
   def findInstance(smqd: Smqd): ReportEngine = {
@@ -62,11 +59,7 @@ object ReportEngine {
 
 class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(name, smqd, config) with StrictLogging {
 
-  private val backend = Repository.findInstance(smqd)
-  private val jsContext = new SimpleJasperReportsContext()
-  val repositoryService = new EngineRepositoryService(jsContext, backend)
-  jsContext.setExtensions(classOf[RepositoryService], Seq(repositoryService).asJava)
-  jsContext.setExtensions(classOf[PersistenceServiceFactory], Seq(EngineRepositoryPersistenceServiceFactory).asJava)
+  private[engine] val backend = Repository.findInstance(smqd)
 
   implicit val ec: ExecutionContext = backend.context.executionContext
   implicit val materializer: Materializer = backend.context.materializer
@@ -94,39 +87,28 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
 
   }
 
-  def exportReport(uri: String, parameters: Map[String, Any], format: ExportFormat.Value): Future[ByteString] = {
-    val exporter = ReportExporter(jsContext, format)
-    generate(uri, parameters).map ( exporter.exportReport )
+  def report(reportUnitUri: String): Report = {
+    new Report(this, reportUnitUri)
   }
 
-  def exportReportToFile(uri: String, parameters: Map[String, Any], format: ExportFormat.Value, destFilename: String): Future[File] = {
-    val exporter = ReportExporter(jsContext, format)
-    generate(uri, parameters).map( exporter.exportReportToFile(_, destFilename))
-  }
-
-  def exportReportToFileSync(uri: String, parameters: Map[String, Any], format: ExportFormat.Value, destFilename: String)(implicit timeout: FiniteDuration): File = {
-    val future = exportReportToFile(uri, parameters, format, destFilename)
-    Await.result(future, timeout)
-  }
-
-  case class ReportUnitContents(jsReport: JasperReport, resources: Map[String, Array[Byte]], dataSource: Option[DataSourceResource])
-
-  private def loadReportUnit(uri: String): Future[ReportUnitContents] = {
-    backend.getResource(uri).map{
+  private[engine] def loadReportUnit(report: Report): Future[ReportUnitCompiled] = {
+    backend.getResource(report.reportUnitUri).map{
       case Left(ex) =>
         Future.failed(ex)
       case Right(r) if !r.isInstanceOf[ReportUnitResource] =>
-        Future.failed(new RuntimeException(s"resource is not report unit, but ${r.resourceType}: $uri"))
+        Future.failed(new RuntimeException(s"resource is not report unit, but ${r.resourceType}: ${report.reportUnitUri}"))
       case Right(r) if r.isInstanceOf[ReportUnitResource] =>
         // ReportUnit loaded
         val ru = r.asInstanceOf[ReportUnitResource]
-        // get jrxml file as an InputStream
+        // compile jrxml
         val compiledJrxml: Future[JasperReport] = ru.jrxml match {
           case Some(fr) =>
             if (useReportCache)
-              reportCache.fromFuture(fr.uri, fr.updateDate.map(_.getTime)) { compileJrxml(fr.uri) }
+              reportCache.fromFuture(fr.uri, fr.updateDate.map(_.getTime)) {
+                compileJrxml(fr.uri, report.jsContext)
+              }
             else
-              compileJrxml(fr.uri)
+              compileJrxml(fr.uri, report.jsContext)
           case None => Future.failed(new RuntimeException("report unit doesn't contain jrxml"))
         }
 
@@ -142,11 +124,10 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
             }
           }).map(_.toSeq).map(seq => Map(seq:_*))
 
-        // parallelize futures of reading contents
         for {
           jrxml <- compiledJrxml
           resourceMap <- resources
-        } yield ReportUnitContents(jrxml, resourceMap, ru.dataSource)
+        } yield ReportUnitCompiled(jrxml, resourceMap, ru.dataSource)
     }.flatten
   }
 
@@ -163,22 +144,22 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
     }.flatten
   }
 
-  private def compileJrxml(uri: String): Future[JasperReport] = {
-    backend.getContent(uri).map {
+  def compileJrxml(jrxmlUri: String, jsContext: JasperReportsContext): Future[JasperReport] = {
+    backend.getContent(jrxmlUri).map {
       case Right(fc) =>
-        logger.info(s"Compiling jrxml $uri")
+        logger.info(s"Compiling jrxml $jrxmlUri")
         val tick = System.currentTimeMillis
         val in = fc.source.runWith(StreamConverters.asInputStream(3.seconds))
         val compiler = JasperCompileManager.getInstance(jsContext)
         val report = compiler.compile(in)
-        logger.debug(s"Compile time ${System.currentTimeMillis - tick}ms. $uri")
+        logger.debug(s"Compile time ${System.currentTimeMillis - tick}ms. $jrxmlUri")
         Future.successful(report)
       case Left(ex) =>
         Future.failed(ex)
     }.flatten
   }
 
-  private def jdbcDataSource(dsResource: Option[DataSourceResource]): Future[Option[Connection]] = Future {
+  private[engine] def jdbcDataSource(dsResource: Option[DataSourceResource]): Future[Option[Connection]] = Future {
     if (dsResource.isDefined && dsResource.get.isInstanceOf[JdbcDataSourceResource]) {
       val ds = dsResource.get.asInstanceOf[JdbcDataSourceResource]
 
@@ -198,51 +179,13 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
     }
   }
 
-  private def dataSource(dsResource: Option[DataSourceResource]): Future[Option[JRDataSource]] = Future{
+  private[engine] def dataSource(dsResource: Option[DataSourceResource]): Future[Option[JRDataSource]] = Future{
     dsResource match {
       // TODO: create JR DataSource instance
       //Some(new JREmptyDataSource)
 
       // for now, we are supporting only jdbc datasource
       case _ => None
-    }
-  }
-
-  private def generate(uri: String, parameters: Map[String, Any]): Future[JasperPrint] = {
-    val compiled = for {
-      ctnt <- loadReportUnit(uri)
-      ds <- dataSource(ctnt.dataSource)
-      jdbcConn <- jdbcDataSource(ctnt.dataSource)
-    } yield (ctnt, ds, jdbcConn)
-
-    compiled map { case (ctnt, dataSource, jdbcConnection) =>
-      // set parameters
-      val params = new java.util.HashMap[String, AnyRef]()
-      parameters.foreach { case (k, v) =>
-        params.put(k, v.asInstanceOf[AnyRef])
-      }
-
-      // set resources
-      ctnt.resources.foreach{ case (resourceName, in) =>
-        jsContext.setValue(s"repo:$resourceName", in)
-      }
-
-      // create JasperPrint by filling JasperReport
-      if (dataSource.isDefined) {
-        JasperFillManager.getInstance(jsContext).fill(ctnt.jsReport, params, dataSource.get)
-      }
-      else if (jdbcConnection.isDefined) {
-        val conn = jdbcConnection.get
-        try {
-          JasperFillManager.getInstance(jsContext).fill(ctnt.jsReport, params, conn)
-        }
-        finally {
-          conn.close()
-        }
-      }
-      else {
-        JasperFillManager.getInstance(jsContext).fill(ctnt.jsReport, params)
-      }
     }
   }
 }
