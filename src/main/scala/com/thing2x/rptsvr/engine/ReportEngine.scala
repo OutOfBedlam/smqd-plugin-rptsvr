@@ -15,7 +15,7 @@
 
 package com.thing2x.rptsvr.engine
 
-import java.io.{File, InputStream}
+import java.io.File
 import java.sql.{Connection, Driver}
 import java.util.Properties
 
@@ -71,6 +71,18 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
   implicit val ec: ExecutionContext = backend.context.executionContext
   implicit val materializer: Materializer = backend.context.materializer
 
+  private val useReportCache = config.getBoolean("cache.report.enabled")
+  private val reportCache = LruCache[String, JasperReport](
+    config.getInt("cache.report.max"),
+    config.getDouble("cache.report.dropfraction"),
+    config.getDuration("cache.report.ttl").toMillis.millis)
+
+  private val useResourceCache = config.getBoolean("cache.resource.enabled")
+  private val resourceCache = LruCache[String, Array[Byte]](
+    config.getInt("cache.resource.max"),
+    config.getDouble("cache.resource.dropfraction"),
+    config.getDuration("cache.resource.ttl").toMillis.millis)
+
   override def start(): Unit = {
     val fontFamilies = ExtensionsEnvironment.getExtensionsRegistry.getExtensions(classOf[FontFamily]).asScala
     fontFamilies.foreach { fm =>
@@ -98,11 +110,6 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
   }
 
   case class ReportUnitContents(jsReport: JasperReport, resources: Map[String, Array[Byte]], dataSource: Option[DataSourceResource])
-
-  private val useReportCache = true
-  private val reportCache = LruCache[String, JasperReport](20)
-  private val useResourceCache = true
-  private val resourceCache = LruCache[String, Array[Byte]](50)
 
   private def loadReportUnit(uri: String): Future[ReportUnitContents] = {
     backend.getResource(uri).map{
