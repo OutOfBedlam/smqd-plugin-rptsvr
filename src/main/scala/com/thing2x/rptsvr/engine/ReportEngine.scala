@@ -97,9 +97,14 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
     Await.result(future, timeout)
   }
 
-  case class ReportUnitContents(jrxml: InputStream, resources: Map[String, InputStream], dataSource: Option[DataSourceResource])
+  case class ReportUnitContents(jsReport: JasperReport, resources: Map[String, Array[Byte]], dataSource: Option[DataSourceResource])
 
-  private def loadReportUnitContents(uri: String): Future[ReportUnitContents] = {
+  private val useReportCache = true
+  private val reportCache = LruCache[String, JasperReport](20)
+  private val useResourceCache = true
+  private val resourceCache = LruCache[String, Array[Byte]](50)
+
+  private def loadReportUnit(uri: String): Future[ReportUnitContents] = {
     backend.getResource(uri).map{
       case Left(ex) =>
         Future.failed(ex)
@@ -108,45 +113,62 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
       case Right(r) if r.isInstanceOf[ReportUnitResource] =>
         // ReportUnit loaded
         val ru = r.asInstanceOf[ReportUnitResource]
-
         // get jrxml file as an InputStream
-        val jrxmlContent: Future[InputStream] = ru.jrxml match {
-          case Some(fr) => backend.getContent(fr.uri).map {
-            case Right(fc) =>
-              val in = fc.source.runWith(StreamConverters.asInputStream(3.seconds))
-              Future.successful(in)
-            case Left(ex) =>
-              Future.failed(ex)
-          }.flatten
+        val compiledJrxml: Future[JasperReport] = ru.jrxml match {
+          case Some(fr) =>
+            if (useReportCache)
+              reportCache.fromFuture(fr.uri, fr.updateDate.map(_.getTime)) { compileJrxml(fr.uri) }
+            else
+              compileJrxml(fr.uri)
           case None => Future.failed(new RuntimeException("report unit doesn't contain jrxml"))
         }
 
         // get resource files as Map[name, InputStream]
-        val resources: Future[Map[String, InputStream]] = Future.sequence(
+        val resources: Future[Map[String, Array[Byte]]] = Future.sequence(
           ru.resources map { case (resourceName, resource) =>
-            backend.getContent(resource.uri).map {
-              case Right(fc) =>
-                val in = fc.source.runWith(StreamConverters.asInputStream(3.seconds))
-                Future.successful((resourceName, in))
-              case Left(ex) =>
-                Future.failed(ex)
-            }.flatten
+            if (useResourceCache) {
+              val f = resourceCache.fromFuture(resource.uri, resource.updateDate.map(_.getTime)){ loadResource(resource.uri) }
+              f.map( (resourceName, _) )
+            }
+            else {
+              loadResource(resource.uri).map( (resourceName, _) )
+            }
           }).map(_.toSeq).map(seq => Map(seq:_*))
 
         // parallelize futures of reading contents
         for {
-          jrxml <- jrxmlContent
+          jrxml <- compiledJrxml
           resourceMap <- resources
         } yield ReportUnitContents(jrxml, resourceMap, ru.dataSource)
     }.flatten
   }
 
-  private def compile(is: InputStream): Future[JasperReport] = Future {
-    val compiler = JasperCompileManager.getInstance(jsContext)
-    val report = compiler.compile(is)
-    // save JasperReport to cache (java object serialization)
-    //net.sf.jasperreports.engine.util.JRSaver.saveObject(report, new File("file_loc"))
-    report
+  private def loadResource(uri: String): Future[Array[Byte]] = {
+    backend.getContent(uri).map {
+      case Right(fc) =>
+        logger.info(s"Resource loading $uri")
+        val tick = System.currentTimeMillis
+        val fbs = fc.source.runFold(ByteString.empty)( _++_).map(_.toArray)
+        logger.debug(s"Resource loading time ${System.currentTimeMillis - tick}ms. $uri")
+        fbs
+      case Left(ex) =>
+        Future.failed(ex)
+    }.flatten
+  }
+
+  private def compileJrxml(uri: String): Future[JasperReport] = {
+    backend.getContent(uri).map {
+      case Right(fc) =>
+        logger.info(s"Compiling jrxml $uri")
+        val tick = System.currentTimeMillis
+        val in = fc.source.runWith(StreamConverters.asInputStream(3.seconds))
+        val compiler = JasperCompileManager.getInstance(jsContext)
+        val report = compiler.compile(in)
+        logger.debug(s"Compile time ${System.currentTimeMillis - tick}ms. $uri")
+        Future.successful(report)
+      case Left(ex) =>
+        Future.failed(ex)
+    }.flatten
   }
 
   private def jdbcDataSource(dsResource: Option[DataSourceResource]): Future[Option[Connection]] = Future {
@@ -181,13 +203,12 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
 
   private def generate(uri: String, parameters: Map[String, Any]): Future[JasperPrint] = {
     val compiled = for {
-      ctnt <- loadReportUnitContents(uri)
-      jsReport <- compile(ctnt.jrxml)
+      ctnt <- loadReportUnit(uri)
       ds <- dataSource(ctnt.dataSource)
       jdbcConn <- jdbcDataSource(ctnt.dataSource)
-    } yield (ctnt, jsReport, ds, jdbcConn)
+    } yield (ctnt, ds, jdbcConn)
 
-    compiled map { case (ctnt, jsReport, dataSource, jdbcConnection) =>
+    compiled map { case (ctnt, dataSource, jdbcConnection) =>
       // set parameters
       val params = new java.util.HashMap[String, AnyRef]()
       parameters.foreach { case (k, v) =>
@@ -201,19 +222,19 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
 
       // create JasperPrint by filling JasperReport
       if (dataSource.isDefined) {
-        JasperFillManager.getInstance(jsContext).fill(jsReport, params, dataSource.get)
+        JasperFillManager.getInstance(jsContext).fill(ctnt.jsReport, params, dataSource.get)
       }
       else if (jdbcConnection.isDefined) {
         val conn = jdbcConnection.get
         try {
-          JasperFillManager.getInstance(jsContext).fill(jsReport, params, conn)
+          JasperFillManager.getInstance(jsContext).fill(ctnt.jsReport, params, conn)
         }
         finally {
           conn.close()
         }
       }
       else {
-        JasperFillManager.getInstance(jsContext).fill(jsReport, params)
+        JasperFillManager.getInstance(jsContext).fill(ctnt.jsReport, params)
       }
     }
   }

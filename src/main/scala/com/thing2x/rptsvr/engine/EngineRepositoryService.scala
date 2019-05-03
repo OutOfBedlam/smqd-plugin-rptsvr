@@ -15,7 +15,7 @@
 
 package com.thing2x.rptsvr.engine
 
-import java.io.{InputStream, OutputStream}
+import java.io.{ByteArrayInputStream, InputStream, OutputStream}
 
 import com.thing2x.rptsvr.{Repository => BackendRepo}
 import net.sf.jasperreports.engine.JasperReportsContext
@@ -36,7 +36,8 @@ class EngineRepositoryService(jsContext: JasperReportsContext, backend: BackendR
     if (persistenceService != null)
     {
       //println(s"********************** $uri")
-      val is = repositoryContext.getJasperReportsContext.getValue(uri).asInstanceOf[InputStream]
+      val buff = repositoryContext.getJasperReportsContext.getValue(uri).asInstanceOf[Array[Byte]]
+      val is = new ByteArrayInputStream(buff)
       if (is != null) {
         val isr = new InputStreamResource
         isr.setInputStream(is)
