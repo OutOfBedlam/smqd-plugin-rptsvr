@@ -18,6 +18,7 @@ package com.thing2x.rptsvr.engine
 import java.sql.{Connection, Driver}
 import java.util.Properties
 
+import akka.http.scaladsl.model.{ContentType, ContentTypes, HttpCharsets, MediaTypes}
 import akka.stream.Materializer
 import akka.stream.scaladsl.StreamConverters
 import akka.util.ByteString
@@ -54,6 +55,38 @@ object ReportEngine {
     val text: Value = Value("text")
     val rtf: Value = Value("rtf")
     val odt: Value = Value("odt")
+
+    def valueOf(ext: String): Option[ExportFormat.Value] = {
+      ext match  {
+        case "pdf" => Some(pdf)
+        case "html" => Some(html)
+        case "docx" => Some(docx)
+        case "csv" => Some(csv)
+        case "pptx" => Some(pptx)
+        case "json" => Some(json)
+        case "xml" => Some(xml)
+        case "xls" => Some(xls)
+        case "text" => Some(text)
+        case "rtf" => Some(rtf)
+        case "odt" => Some(odt)
+        case _ => None
+      }
+    }
+
+    def contentType(fmt: ExportFormat.Value): ContentType = {
+      if (fmt == pdf) ContentType(MediaTypes.`application/pdf`)
+      else if (fmt == html) ContentType.WithCharset(MediaTypes.`text/html`, HttpCharsets.`UTF-8`)
+      else if (fmt == docx) ContentType(MediaTypes.`application/vnd.openxmlformats-officedocument.wordprocessingml.document`)
+      else if (fmt == csv) ContentType.WithCharset(MediaTypes.`text/csv`, HttpCharsets.`UTF-8`)
+      else if (fmt == pptx) ContentType(MediaTypes.`application/vnd.openxmlformats-officedocument.presentationml.slide`)
+      else if (fmt == json) ContentType.WithFixedCharset(MediaTypes.`application/json`)
+      else if (fmt == xml) ContentType.WithCharset(MediaTypes.`text/xml`, HttpCharsets.`UTF-8`)
+      else if (fmt == xls) ContentType(MediaTypes.`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`)
+      else if (fmt == text) ContentType.WithCharset(MediaTypes.`text/plain`, HttpCharsets.`UTF-8`)
+      else if (fmt == rtf) ContentType.WithCharset(MediaTypes.`text/richtext`, HttpCharsets.`UTF-8`)
+      else if (fmt == odt) ContentType(MediaTypes.`application/vnd.openxmlformats-officedocument.wordprocessingml.document`)
+      else ContentTypes.`application/octet-stream`
+    }
   }
 }
 

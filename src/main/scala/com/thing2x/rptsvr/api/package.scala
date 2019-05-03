@@ -101,6 +101,14 @@ package object api {
     asHttpResponseFromJson(tup._1, tup._2)
   }
 
+  implicit def asHttpResponseFromString(tup: (StatusCode, String)): HttpResponse = {
+    asHttpResponseFromString(tup._1, tup._2)
+  }
+
+  implicit def asHttpResponseFromString(statusCode: StatusCode, text: String): HttpResponse = {
+    HttpResponse(statusCode, Nil, HttpEntity(ContentType.WithCharset(MediaTypes.`text/plain`, HttpCharsets.`UTF-8`), text))
+  }
+
   implicit def asHttpResponseFromJson(statusCode: StatusCode, json: Json): HttpResponse = {
     HttpResponse(statusCode, Nil, HttpEntity(ContentType(`application/json`), json.noSpaces))
   }

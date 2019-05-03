@@ -33,6 +33,7 @@ class RestV2Controller(name: String, context: HttpServiceContext) extends RestCo
   private val serverInfoHandler = new ServerInfoHandler
   private val userHandler = new UserHandler
   private val resourceHandler = new ResourceHandler(context.smqdInstance)
+  private val reportHandler = new ReportHandler(context.smqdInstance)
 
   override def mediaTypes: List[MediaType.WithFixedCharset] = resourceMediaTypes
 
@@ -72,6 +73,12 @@ class RestV2Controller(name: String, context: HttpServiceContext) extends RestCo
     path( restVersion / "resources") {
       (get & parameters('folderUri, 'recursive.as[Boolean], 'sortBy, 'limit.as[Int])) { (uri, recursive, sortBy, limit) =>
         complete(resourceHandler.lookupResource(uri, recursive, sortBy, limit))
+      }
+    } ~
+    path( restVersion / "reports" / Segments) { path =>
+      (get & parameters('page.as[Int].?, 'forceOctetStream.as[Boolean].?)) { (page, forceOctetStream )=>
+        val uri = path.mkString("/", "/", "")
+        complete(reportHandler.getReport(uri, page, forceOctetStream))
       }
     } ~
     path( "j_spring_security_check") {
