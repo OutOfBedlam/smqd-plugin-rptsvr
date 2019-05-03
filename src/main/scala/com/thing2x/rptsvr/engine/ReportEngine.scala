@@ -16,6 +16,8 @@
 package com.thing2x.rptsvr.engine
 
 import java.io.{File, InputStream}
+import java.sql.{Connection, Driver}
+import java.util.Properties
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.StreamConverters
@@ -27,7 +29,7 @@ import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jasperreports.engine._
-import net.sf.jasperreports.engine.fonts.{FontExtensionsContainer, FontExtensionsRegistry, FontFamily, SimpleFontExtensionsRegistryFactory}
+import net.sf.jasperreports.engine.fonts.FontFamily
 import net.sf.jasperreports.extensions.ExtensionsEnvironment
 import net.sf.jasperreports.repo.{PersistenceServiceFactory, RepositoryService}
 
@@ -147,15 +149,33 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
     report
   }
 
-  private def dataSource(dsResource: Option[DataSourceResource]): Future[JRDataSource] = Future {
+  private def jdbcDataSource(dsResource: Option[DataSourceResource]): Future[Option[Connection]] = Future {
+    if (dsResource.isDefined && dsResource.get.isInstanceOf[JdbcDataSourceResource]) {
+      val ds = dsResource.get.asInstanceOf[JdbcDataSourceResource]
+
+      logger.debug(s"JDBC DS driver=${ds.driverClass} url=${ds.connectionUrl}")
+      val clazz = Class.forName("org.h2.Driver")
+      val driver = clazz.getDeclaredConstructor().newInstance().asInstanceOf[Driver]
+
+      val props = new Properties()
+      if (ds.username.isDefined) props.setProperty("user", ds.username.get)
+      if (ds.password.isDefined) props.setProperty("password", ds.password.get)
+
+      val conn = driver.connect(ds.connectionUrl.get, props)
+      Option(conn)
+    }
+    else {
+      None
+    }
+  }
+
+  private def dataSource(dsResource: Option[DataSourceResource]): Future[Option[JRDataSource]] = Future{
     dsResource match {
-      case Some(x) if x.isInstanceOf[JdbcDataSourceResource] =>
-        val ds = x.asInstanceOf[JdbcDataSourceResource]
-        logger.debug(s"JDBC DS driver=${ds.driverClass} url=${ds.connectionUrl}")
-        //TODO make data source instance
-        new JREmptyDataSource
-      case _ =>
-        new JREmptyDataSource
+      // TODO: create JR DataSource instance
+      //Some(new JREmptyDataSource)
+
+      // for now, we are supporting only jdbc datasource
+      case _ => None
     }
   }
 
@@ -164,9 +184,10 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
       ctnt <- loadReportUnitContents(uri)
       jsReport <- compile(ctnt.jrxml)
       ds <- dataSource(ctnt.dataSource)
-    } yield (ctnt, jsReport, ds)
+      jdbcConn <- jdbcDataSource(ctnt.dataSource)
+    } yield (ctnt, jsReport, ds, jdbcConn)
 
-    compiled map { case (ctnt, jsReport, dataSource) =>
+    compiled map { case (ctnt, jsReport, dataSource, jdbcConnection) =>
       // set parameters
       val params = new java.util.HashMap[String, AnyRef]()
       parameters.foreach { case (k, v) =>
@@ -178,8 +199,22 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
         jsContext.setValue(s"repo:$resourceName", in)
       }
 
-      // create JasperPrint
-      JasperFillManager.getInstance(jsContext).fill(jsReport, params, dataSource)
+      // create JasperPrint by filling JasperReport
+      if (dataSource.isDefined) {
+        JasperFillManager.getInstance(jsContext).fill(jsReport, params, dataSource.get)
+      }
+      else if (jdbcConnection.isDefined) {
+        val conn = jdbcConnection.get
+        try {
+          JasperFillManager.getInstance(jsContext).fill(jsReport, params, conn)
+        }
+        finally {
+          conn.close()
+        }
+      }
+      else {
+        JasperFillManager.getInstance(jsContext).fill(jsReport, params)
+      }
     }
   }
 }

@@ -1,7 +1,8 @@
 package com.thing2x.rptsvr.api
 
 import java.io.File
-import java.sql.DriverManager
+import java.sql.{Driver, DriverManager}
+import java.util.Properties
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.headers.RawHeader
@@ -75,13 +76,27 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
   /////////////////////////////////////////////////
   // test jdbc connection
   "database test" should "pass" in {
-    val conn = DriverManager.getConnection(s"jdbc:h2:tcp://localhost:9099/mem:sampledb", "sa", "sa")
+    assert(Class.forName("org.h2.Driver") != null)
+
+    val url = "jdbc:h2:tcp://localhost:9099/mem:sampledb"
+    val clazz = Class.forName("org.h2.Driver")
+    val driver = clazz.getDeclaredConstructor().newInstance().asInstanceOf[Driver]
+
+    assert( driver.acceptsURL(url) )
+
+    val props = new Properties()
+    props.setProperty("user", "sa")
+    props.setProperty("password", "sa")
+
+    val conn = driver.connect(url, props)
+    assert( conn != null)
+
     val stmt = conn.prepareStatement("select name, cost, email from sample_table")
     val rset = stmt.executeQuery()
     while( rset.next() ) {
-      val name = rset.getString(1)
-      val cost = rset.getInt(2)
-      val email = rset.getString(3)
+      val name = rset.getString("NAME")
+      val cost = rset.getInt("COST")
+      val email = rset.getString("EMAIL")
       logger.info(s"---> $name  $cost  $email")
     }
     rset.close()

@@ -17,7 +17,7 @@ object Dependencies {
   )
 
   val fonts: Seq[ModuleID] = Seq(
-    "com.thing2x" %% "jasperreports-font-nanum" % "0.1.0-SNAPSHOT" % Test changing()
+    "com.thing2x" % "jasperreports-font-nanum" % "0.2.0" % Test
   )
 
   val test: Seq[ModuleID] = Seq(
