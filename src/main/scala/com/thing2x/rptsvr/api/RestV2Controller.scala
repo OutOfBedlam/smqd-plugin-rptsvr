@@ -76,9 +76,11 @@ class RestV2Controller(name: String, context: HttpServiceContext) extends RestCo
       }
     } ~
     path( restVersion / "reports" / Segments) { path =>
-      (get & parameters('page.as[Int].?, 'forceOctetStream.as[Boolean].?)) { (page, forceOctetStream )=>
+      (get & parameters('params.as(reportHandler.paramsUnmarshaller) ? Map.empty,
+                        'page.as[Int].?,
+                        'forceOctetStream.as[Boolean] ? false)) { (params, page, forceOctetStream )=>
         val uri = path.mkString("/", "/", "")
-        complete(reportHandler.getReport(uri, page, forceOctetStream))
+        complete(reportHandler.getReport(uri, params, page, forceOctetStream))
       }
     } ~
     path( "j_spring_security_check") {
@@ -96,12 +98,19 @@ class RestV2Controller(name: String, context: HttpServiceContext) extends RestCo
     } ~
     {
       extract(_.request) { request =>
-        logger.error("Unhandled-request-1 dump begin  -----------------------------")
-        logger.error(s"${request.method.toString} ${request.uri} ${request.entity.contentType.mediaType.toString}")
         val buff = request.entity.dataBytes.runFold(ByteString.empty)(_ ++ _)
         val body = scala.concurrent.Await.result(buff, 5.second)
-        logger.error(s"${body.utf8String}")
-        logger.error("Unhandled-request-1 dump end  -----------------------------")
+        logger.error("")
+        logger.error(
+          s"""
+             |UNHANDLED-REQUEST DUMP BEGIN  -----------------------------
+             |  ${request.method.value} ${request.uri} ${request.protocol.value}
+             |${request.headers.mkString("  ", "  ", "")}
+             |
+             |${body.utf8String}
+             |UNHANDLED-REQUEST DUMP END    -------------------------------
+             |
+           """.stripMargin)
         complete(StatusCodes.NotAcceptable)
       }
     }

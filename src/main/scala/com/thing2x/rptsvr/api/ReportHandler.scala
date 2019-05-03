@@ -1,6 +1,8 @@
 package com.thing2x.rptsvr.api
 
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.unmarshalling.Unmarshaller
+import akka.stream.Materializer
 import com.thing2x.rptsvr.engine.ReportEngine
 import com.thing2x.rptsvr.engine.ReportEngine.ExportFormat
 import com.thing2x.smqd.Smqd
@@ -12,10 +14,30 @@ class ReportHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) exte
 
   private val engine = ReportEngine.findInstance(smqd)
 
-  def getReport(uri: String, page: Option[Int], forceOctetStream: Option[Boolean]): Future[HttpResponse] = {
+  import smqd.Implicit._
+  //private implicit val ec: ExecutionContext = smqd.Implicit
+
+  val paramsUnmarshaller: Unmarshaller[String, Map[String, String]] = new Unmarshaller[String, Map[String, String]] {
+    override def apply(value: String)(implicit ec: ExecutionContext, materializer: Materializer): Future[Map[String, String]] = Future {
+      val seq = value.split(';').flatMap{ tok =>
+        val idx = tok.indexOf('=')
+        if (idx == -1 || idx >= tok.length - 1) {
+          None
+        }
+        else {
+          val k = tok.substring(0, idx)
+          val v = tok.substring(idx+1)
+          Some((k, v))
+        }
+      }.toSeq
+      Map(seq:_*)
+    }
+  }
+
+  def getReport(uri: String, parameters: Map[String, String], page: Option[Int], forceOctetStream: Boolean): Future[HttpResponse] = {
     val extPos = uri.lastIndexOf('.')
     if (extPos == -1 || extPos >= uri.length - 1) {
-      Future( (StatusCodes.BadRequest, s"request should contains exporting format: $uri"))
+      Future( (StatusCodes.BadRequest, s"request missing parameter for exporting format: $uri"))
     }
     else {
       val reportUri = uri.substring(0, extPos)
@@ -27,9 +49,8 @@ class ReportHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) exte
       }
       else {
         val report = engine.report(reportUri)
-        report.exportReport(Map.empty, format.get).map { buff =>
-
-          val contentType = if (forceOctetStream.getOrElse(false))
+        report.exportReport(parameters, format.get).map { buff =>
+          val contentType = if (forceOctetStream)
             ContentTypes.`application/octet-stream`
           else
             ExportFormat.contentType(format.get)
