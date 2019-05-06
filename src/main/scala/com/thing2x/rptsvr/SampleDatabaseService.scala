@@ -15,16 +15,33 @@
 
 package com.thing2x.rptsvr
 
+import com.thing2x.rptsvr.repo.db.DBRepository
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
-import com.typesafe.config.Config
-import com.typesafe.scalalogging.StrictLogging
 import com.thing2x.smqd.util.ConfigUtil._
-import org.h2.jdbcx.JdbcDataSource
+import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.scalalogging.StrictLogging
+import slick.jdbc.H2Profile.api._
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class SampleDatabaseService(name: String, smqd: Smqd, config: Config) extends Service(name, smqd, config) with StrictLogging  {
 
   private val initTcpPort = config.getOptionInt("tcp.port").getOrElse(0)
+
+  // H2Database setup
+  private val database: Database = Database.forConfig("sampledb", ConfigFactory.parseString(
+    s"""
+       |sampledb {
+       |  driver = "org.h2.Driver"
+       |  url    = "jdbc:h2:mem:sampledb;mode=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false;IFEXISTS=FALSE"
+       |  user   = "sa"
+       |  password = "sa"
+       |  keepAliveConnection = true
+       |  connectionPool = disabled
+       |}
+      """.stripMargin))
 
   private val tcpServer = org.h2.tools.Server.createTcpServer(
     Array("-tcpPort", initTcpPort.toString, "-tcpAllowOthers", "-tcpPassword", "sa", "-tcpDaemon"):_*)
@@ -32,44 +49,43 @@ class SampleDatabaseService(name: String, smqd: Smqd, config: Config) extends Se
   def tcpPort: Int = tcpServer.getPort
 
   override def start(): Unit = {
+    //////////////////////////////////////
+    // sample_table
+    //////////////////////////////////////
+    val sampleUsers = TableQuery[SampleUserTable]
+
+    import smqd.Implicit.gloablDispatcher
+
+    // create table sample_table
+    val setup = for {
+      _ <- sampleUsers.schema.create
+      rowsAdded <- sampleUsers ++= Seq(
+        SampleUser("Smith", 100.1, "smith@email.com"),
+        SampleUser("Marry", 19.9, "marry@email.com"),
+        SampleUser("John", 32.5, "john@email.com"),
+        SampleUser("Steve", 51.2, "steve@email.com"),
+        SampleUser("Robert", 82.3, "robert@email.com"),
+      )
+    } yield rowsAdded
+
+    Await.result(database.run(setup), 2.second)
+
+    // start tcp connector
     tcpServer.start()
-
     logger.info(s"SampleDatabase service: ${tcpServer.getStatus}")
-    // H2Database setup
-    val ds = new JdbcDataSource
-    ds.setURL(s"jdbc:h2:mem:sampledb;mode=MySQL;DB_CLOSE_DELAY=-1")
-    ds.setUser("sa")
-    ds.setPassword("sa")
-
-    // create table and insert test data
-    val conn = ds.getConnection
-    val stmt1 = conn.createStatement()
-    stmt1.executeUpdate(
-      """
-        |create table if not exists sample_table(
-        |   NAME VARCHAR(80),
-        |   COST NUMBER,
-        |   EMAIL VARCHAR(40)
-        |)
-      """.stripMargin)
-
-    val data = Seq(
-      ("Smith", 100.1, "smith@email.com"),
-      ("Marry", 19.9, "marry@email.com"),
-      ("John", 32.5, "john@email.com"),
-    )
-    data.foreach{ r =>
-      val stmt = conn.prepareStatement("INSERT INTO sample_table VALUES(?, ?, ?)")
-      stmt.setString(1, r._1)
-      stmt.setDouble(2, r._2)
-      stmt.setString(3, r._3)
-      stmt.executeUpdate()
-    }
-    conn.close()
-
   }
 
   override def stop(): Unit = {
     tcpServer.stop()
+    database.close()
   }
+}
+
+final case class SampleUser(name: String, cost: Double, email: String)
+
+final class SampleUserTable(tag: Tag) extends Table[SampleUser](tag, "sample_table") {
+  def name = column[String]("name", O.PrimaryKey)
+  def cost = column[Double]("cost")
+  def email = column[String]("email")
+  def * = (name, cost, email).mapTo[SampleUser]
 }

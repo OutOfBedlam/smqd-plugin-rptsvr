@@ -27,10 +27,10 @@ object Dependencies {
   ).map(_ % Test)
 
   val slick: Seq[ModuleID] = Seq(
-    "com.typesafe.slick" %% "slick" % "3.2.3",
-    "com.typesafe.slick" %% "slick-hikaricp" % "3.2.3",
-    "com.typesafe.slick" %% "slick-codegen" % "3.2.3",
-  )
+    "com.typesafe.slick" %% "slick",
+    "com.typesafe.slick" %% "slick-hikaricp",
+    "com.typesafe.slick" %% "slick-codegen",
+  ).map ( _ % "3.3.0")
 
   val quartz: Seq[ModuleID] = Seq(
     "com.enragedginger" %% "akka-quartz-scheduler" % "1.8.0-akka-2.5.x"

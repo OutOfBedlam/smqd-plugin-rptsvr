@@ -30,7 +30,7 @@ object ResourceHandler {
 
 class ResourceHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) extends StrictLogging {
 
-  private val repo = Repository.findInstance(smqd)
+  private val repo = Repository.instance.get
 
   private implicit val repoContext: RepositoryContext = repo.context
 

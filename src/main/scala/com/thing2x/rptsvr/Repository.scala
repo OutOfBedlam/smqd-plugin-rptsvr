@@ -15,17 +15,11 @@
 
 package com.thing2x.rptsvr
 
-import com.thing2x.smqd.Smqd
-
 import scala.concurrent.Future
 
 object Repository {
-  def findInstance(smqd: Smqd): Repository = {
-    val repositoryClass = classOf[Repository]
-    smqd.pluginManager.pluginDefinitions.find{ pd =>
-      repositoryClass.isAssignableFrom(pd.clazz)
-    }.map(_.instances.head.instance.asInstanceOf[Repository]).get
-  }
+  private var _instance: Option[Repository] = None
+  def instance: Option[Repository] = _instance
 
   class RepositoryException extends Exception
 
@@ -34,6 +28,10 @@ object Repository {
 }
 
 trait Repository {
+
+  // the lastest created repository instance always win
+  Repository._instance = Some(this)
+
   val context: RepositoryContext
   def listFolder(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]]
 

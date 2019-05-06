@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ReportHandler(smqd: Smqd)(implicit executionContex: ExecutionContext) extends StrictLogging  {
 
-  private val engine = ReportEngine.findInstance(smqd)
+  private val engine = ReportEngine.instance.get
 
   import smqd.Implicit._
   //private implicit val ec: ExecutionContext = smqd.Implicit

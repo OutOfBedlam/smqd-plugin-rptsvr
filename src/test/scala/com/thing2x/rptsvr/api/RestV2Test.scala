@@ -63,7 +63,7 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
     smqdInstance.start()
     routes = smqdInstance.service("report-api").get.asInstanceOf[HttpService].routes
 
-    engine = ReportEngine.findInstance(smqdInstance)
+    engine = ReportEngine.instance.get
   }
 
   override def afterAll(): Unit = {
@@ -203,6 +203,36 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
       logger.info(json.spaces2)
       val cur = json.hcursor
       assert (cur.downField("uri").as[String].right.get == s"/$foldername/$jdbcname")
+    }
+  }
+
+  /////////////////////////////////////////////////
+  // write query resource
+  val queryname = "select_all_sample_table"
+  "query" should "be written" in {
+    val req = HttpEntity(ContentType(`application/repository.query+json`),
+      s"""
+         |{
+         |  "version" : -1,
+         |  "permissionMask" : 1,
+         |  "label" : "$queryname",
+         |  "uri" : "/$foldername/$queryname",
+         |  "dataSource" : {
+         |    "dataSourceReference" : {
+         |      "uri" : "/$foldername/$jdbcname"
+         |    }
+         |  },
+         |  "value" : "select * from sample_table",
+         |  "language" : "sql"
+         |}
+       """.stripMargin)
+    Post(s"/rptsvr/rest_v2/resources/$foldername/$queryname?createFolders=true&overwrite=true", req) ~> routes ~> check {
+      status shouldEqual StatusCodes.Created
+      val content = entityAs[String]
+      val json = parser.parse(content).right.get
+      logger.info(json.spaces2)
+      val cur = json.hcursor
+      assert (cur.downField("uri").as[String].right.get == s"/$foldername/$queryname")
     }
   }
 

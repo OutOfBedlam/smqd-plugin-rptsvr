@@ -18,6 +18,9 @@ package com.thing2x.rptsvr
 import akka.http.scaladsl.model.{HttpCharsets, MediaType}
 import io.circe.{ACursor, DecodingFailure, Json}
 
+object FolderResource {
+  def apply(uri: String, label: String)(implicit context: RepositoryContext) = new FolderResource(uri, label)
+}
 class FolderResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
   override val resourceType: String = "folder"
   override val mediaType: MediaType.WithFixedCharset = MediaType.applicationWithFixedCharset("repository.folder+json", HttpCharsets.`UTF-8`)
@@ -27,5 +30,7 @@ class FolderResource(val uri: String, val label: String)(implicit context: Repos
   def write(writer: ResourceWriter): Unit = {
     writer.writeMeta(this)
   }
+
+  override def toString: String = s"FolderResource(uri=$uri, label=$label)"
 }
 

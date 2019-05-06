@@ -36,12 +36,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 object ReportEngine {
-  def findInstance(smqd: Smqd): ReportEngine = {
-    val engineClass = classOf[ReportEngine]
-    smqd.pluginManager.pluginDefinitions.find{ pd =>
-      engineClass.isAssignableFrom(pd.clazz)
-    }.map(_.instances.head.instance.asInstanceOf[ReportEngine]).get
-  }
+  private var _instance: Option[ReportEngine] = None
+  def instance: Option[ReportEngine] = _instance
 
   object ExportFormat extends Enumeration {
     val pdf: Value = Value("pdf")
@@ -92,7 +88,9 @@ object ReportEngine {
 
 class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(name, smqd, config) with StrictLogging {
 
-  private[engine] val backend = Repository.findInstance(smqd)
+  ReportEngine._instance = Some(this)
+
+  private[engine] val backend = Repository.instance.get
 
   implicit val ec: ExecutionContext = backend.context.executionContext
   implicit val materializer: Materializer = backend.context.materializer
