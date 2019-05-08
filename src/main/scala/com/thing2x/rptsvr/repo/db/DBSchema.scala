@@ -1,52 +1,10 @@
 package com.thing2x.rptsvr.repo.db
 
-import java.sql.{Blob, Date}
+import java.sql.{Blob, Clob, Date}
 
 import com.thing2x.rptsvr.repo.db.DBRepository._
 import slick.lifted.ProvenShape
 import slick.jdbc.H2Profile.api._
-
-//     create table JIResource (
-//        id number(19,0) not null,
-//        version number(10,0) not null,
-//        name nvarchar2(200) not null,
-//        parent_folder number(19,0) not null,
-//        childrenFolder number(19,0),
-//        label nvarchar2(200) not null,
-//        description nvarchar2(250),
-//        resourceType nvarchar2(255) not null,
-//        creation_date date not null,
-//        update_date date not null,
-//        primary key (id),
-//        unique (name, parent_folder)
-//    );
-final case class JIResource( name: String,
-                             parentFolder: Long,
-                             childrenFolder: Long,
-                             label: String,
-                             descriptoin: Option[String],
-                             resourceType: String,
-                             creationDate: Date = new Date(System.currentTimeMillis),
-                             updateDate: Date = new Date(System.currentTimeMillis),
-                             version: Long = -1,
-                             id: Long = 0L)
-
-final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource") {
-  def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-  def version = column[Long]("version")
-  def name = column[String]("name")
-  def parentFolder = column[Long]("parent_folder")
-  def childrenFolder = column[Long]("childrenFolder")
-  def label = column[String]("label")
-  def description = column[Option[String]]("description")
-  def resourceType = column[String]("resourceType")
-  def creationDate = column[Date]("creation_date")
-  def updateDate = column[Date]("update_date")
-
-  def folder = foreignKey("parent_folder_fk", parentFolder, resourceFolders)(_.id)
-
-  def * = (name, parentFolder, childrenFolder, label, description, resourceType, creationDate, updateDate, version, id).mapTo[JIResource]
-}
 
 //    create table JIResourceFolder (
 //        id number(19,0) not null,
@@ -70,12 +28,12 @@ final case class JIResourceFolder( uri: String,
                                    hidden: Boolean = false,
                                    creationDate: Date = new Date(System.currentTimeMillis),
                                    updateDate: Date = new Date(System.currentTimeMillis),
-                                   version: Long = -1,
+                                   version: Int = -1,
                                    id: Long = 0L)
 
 final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIResourceFolder") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-  def version = column[Long]("version")
+  def version = column[Int]("version")
   def uri = column[String]("uri", O.Unique)
   def hidden = column[Boolean]("hidden", O.Default(false))
   def name = column[String]("name")
@@ -88,6 +46,48 @@ final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag,
   def * = (uri, name, label, description, parentFolder, hidden, creationDate, updateDate, version, id).mapTo[JIResourceFolder]
 }
 
+//     create table JIResource (
+//        id number(19,0) not null,
+//        version number(10,0) not null,
+//        name nvarchar2(200) not null,
+//        parent_folder number(19,0) not null,
+//        childrenFolder number(19,0),
+//        label nvarchar2(200) not null,
+//        description nvarchar2(250),
+//        resourceType nvarchar2(255) not null,
+//        creation_date date not null,
+//        update_date date not null,
+//        primary key (id),
+//        unique (name, parent_folder)
+//    );
+final case class JIResource( name: String,
+                             parentFolder: Long,
+                             childrenFolder: Option[Long],
+                             label: String,
+                             descriptoin: Option[String],
+                             resourceType: String,
+                             creationDate: Date = new Date(System.currentTimeMillis),
+                             updateDate: Date = new Date(System.currentTimeMillis),
+                             version: Int = -1,
+                             id: Long = 0L)
+
+final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource") {
+  def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+  def version = column[Int]("version")
+  def name = column[String]("name")
+  def parentFolder = column[Long]("parent_folder")
+  def childrenFolder = column[Option[Long]]("childrenFolder")
+  def label = column[String]("label")
+  def description = column[Option[String]]("description")
+  def resourceType = column[String]("resourceType")
+  def creationDate = column[Date]("creation_date")
+  def updateDate = column[Date]("update_date")
+
+  def parentFolderFk = foreignKey("resource_parent_folder_fk", parentFolder, resourceFolders)(_.id)
+
+  def * = (name, parentFolder, childrenFolder, label, description, resourceType, creationDate, updateDate, version, id).mapTo[JIResource]
+}
+
 //    create table JIFileResource (
 //        id number(19,0) not null,
 //        data blob,
@@ -97,32 +97,70 @@ final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag,
 //    );
 final case class JIFileResource( fileType: String,
                                  data: Option[Blob],
-                                 reference: Long,
+                                 reference: Option[Long],
                                  id: Long = 0L)
 
 final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, "JIFileResource") {
   def fileType    = column[String]("file_type")
   def data   = column[Option[Blob]]("data")
-  def reference    = column[Long]("reference")
-  def id           = column[Long]("id", O.PrimaryKey, O.AutoInc)
+  def reference    = column[Option[Long]]("reference")
+  def id           = column[Long]("id", O.PrimaryKey)
+
+  def idFk = foreignKey("fileresource_id_fk", id, resources)(_.id)
+
   def * : ProvenShape[JIFileResource] = (fileType, data, reference, id).mapTo[JIFileResource]
 }
 
-//    create table JIContentResource (
+// create table JIJdbcDatasource (
 //        id number(19,0) not null,
-//        data blob,
-//        file_type nvarchar2(20),
+//        driver nvarchar2(100) not null,
+//        password nvarchar2(250),
+//        connectionUrl nvarchar2(500),
+//        username nvarchar2(100),
+//        timezone nvarchar2(100),
 //        primary key (id)
 //    );
-final case class JIContentResource( serviceClass: String,
-                                    data: Option[Blob],
-                                    id: Long = 0L)
+final case class JIJdbcDatasource( driver: String,
+                                   connectionUrl: Option[String],
+                                   username: Option[String],
+                                   password: Option[String],
+                                   timezone: Option[String],
+                                   id: Long = 0L)
 
-final class JIContentResourceTable(tag: Tag) extends Table[JIContentResource](tag, "JIContentResource") {
-  def serviceClass = column[String]("serviceClass")
-  def data = column[Option[Blob]]("data")
-  def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-  def * = (serviceClass, data, id).mapTo[JIContentResource]
+final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag, "JIJdbcDatasource") {
+  def driver = column[String]("driver")
+  def connectionUrl = column[Option[String]]("connectionUrl")
+  def username = column[Option[String]]("username")
+  def password = column[Option[String]]("password")
+  def timezone = column[Option[String]]("timezone")
+  def id = column[Long]("id", O.PrimaryKey)
+
+  def idFk = foreignKey("jdbcdtatsource_id_fk", id, resources)(_.id)
+
+  def * : ProvenShape[JIJdbcDatasource] = (driver, connectionUrl, username, password, timezone, id).mapTo[JIJdbcDatasource]
+}
+
+// create table JIQuery (
+//        id number(19,0) not null,
+//        dataSource number(19,0),
+//        query_language nvarchar2(40) not null,
+//        sql_query nclob not null,
+//        primary key (id)
+//    );
+final case class JIQuery( queryLanguage: String,
+                          sqlQuery: Clob,
+                          dataSource: Option[Long],
+                          id: Long = 0L)
+final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
+  def queryLanguage = column[String]("query_language")
+  def sqlQuery = column[Clob]("sql_query")
+  def dataSource = column[Option[Long]]("dataSource")
+  def id = column[Long]("id", O.PrimaryKey)
+
+  def idFk = foreignKey("jiquery_id_fk", id, resources)(_.id)
+  def dataSourceFk = foreignKey("jiquery_datasource_fk", dataSource, resources)(_.id.?)
+
+  def * : ProvenShape[JIQuery] = (queryLanguage, sqlQuery, dataSource, id).mapTo[JIQuery]
 }
 
 //    create table JIDataType (
@@ -161,30 +199,12 @@ final class JIContentResourceTable(tag: Tag) extends Table[JIContentResource](ta
 //        primary key (input_control_id, column_index)
 //    );
 
-// create table JIJdbcDatasource (
-//        id number(19,0) not null,
-//        driver nvarchar2(100) not null,
-//        password nvarchar2(250),
-//        connectionUrl nvarchar2(500),
-//        username nvarchar2(100),
-//        timezone nvarchar2(100),
-//        primary key (id)
-//    );
-
 // create table JIObjectPermission (
 //        id number(19,0) not null,
 //        uri nvarchar2(1000) not null,
 //        recipientobjectclass nvarchar2(250),
 //        recipientobjectid number(19,0),
 //        permissionMask number(10,0) not null,
-//        primary key (id)
-//    );
-
-// create table JIQuery (
-//        id number(19,0) not null,
-//        dataSource number(19,0),
-//        query_language nvarchar2(40) not null,
-//        sql_query nclob not null,
 //        primary key (id)
 //    );
 

@@ -20,6 +20,10 @@ import io.circe.{ACursor, DecodingFailure, Json}
 
 import scala.collection.mutable
 
+object QueryResource {
+  def apply(uri: String, label: String)(implicit context: RepositoryContext) = new QueryResource(uri, label)
+}
+
 class QueryResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
   override val resourceType: String = "query"
   override val mediaType: MediaType.WithFixedCharset = MediaType.applicationWithFixedCharset("application/repository.query+json", HttpCharsets.`UTF-8`)
@@ -32,7 +36,14 @@ class QueryResource(val uri: String, val label: String)(implicit context: Reposi
     val map: mutable.Map[String, Json] = mutable.Map.empty
     map("value") = Json.fromString(query)
     map("language") = Json.fromString(language)
-    if (dataSource.isDefined) map("dataSource") = dataSource.get.asJson(expanded)
+    if (dataSource.isDefined) map("dataSource") = if (expanded) {
+      Json.obj("dataSource" -> dataSource.get.asJson(expanded))
+    }
+    else {
+      Json.obj("dataSourceReference" -> Json.obj(
+        "uri" -> Json.fromString(dataSource.get.uri)
+      ))
+    }
     Map(map.toSeq:_*)
   }
 

@@ -7,10 +7,12 @@ import akka.stream.Materializer
 import com.thing2x.rptsvr.{Repository, RepositoryContext}
 import com.thing2x.smqd.Smqd
 import com.typesafe.config.Config
+import slick.basic.DatabasePublisher
 import slick.jdbc.H2Profile.api._
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
 
 class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Config) extends RepositoryContext {
 
@@ -43,4 +45,8 @@ class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Co
   def defer(block: => Unit): Unit = {
     deferedBlock += ( () => block )
   }
+
+  private[db] def run[T](act: DBIO[T]): Future[T] = _database.run(act)
+
+  private[db] def runSync[T](act: DBIO[T], timeout: Duration): T = Await.result(_database.run(act), timeout)
 }

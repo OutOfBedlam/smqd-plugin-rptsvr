@@ -20,6 +20,10 @@ import io.circe.{ACursor, DecodingFailure, Json}
 
 import scala.collection.mutable
 
+object JdbcDataSourceResource {
+  def apply(uri: String, label: String)(implicit context: RepositoryContext) = new JdbcDataSourceResource(uri, label)
+}
+
 class JdbcDataSourceResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends DataSourceResource {
   override val resourceType: String = "jdbcDataSource"
   override val mediaType: MediaType.WithFixedCharset = MediaType.applicationWithFixedCharset("repository.jdbcDataSource+json", HttpCharsets.`UTF-8`)
@@ -52,4 +56,9 @@ class JdbcDataSourceResource(val uri: String, val label: String)(implicit contex
   override def write(writer: ResourceWriter): Unit = {
     writer.writeMeta(this)
   }
+
+  override def toString: String = {
+    s"JdbcDataSourceResource(uri=$uri, label=$label, resourceType=$resourceType, driverClass=$driverClass, connectionUrl=$connectionUrl)"
+  }
+
 }

@@ -21,6 +21,10 @@ import io.circe.{ACursor, DecodingFailure, Json}
 
 import scala.collection.mutable
 
+object ReportUnitResource {
+  def apply(uri: String, label: String)(implicit context: RepositoryContext): ReportUnitResource = new ReportUnitResource(uri, label)
+}
+
 class ReportUnitResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
   override val resourceType: String = "reportUnit"
   override val mediaType: MediaType.WithFixedCharset = MediaType.applicationWithFixedCharset("repository.reportUnit+json", HttpCharsets.`UTF-8`)

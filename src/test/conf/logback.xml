@@ -11,4 +11,7 @@
 
     <logger name="com.thing2x.rptsvr" level="TRACE"/>
     <logger name="net.sf.jasperreports" level="DEBUG"/>
+    <logger name="slick.jdbc.JdbcBackend.statement"         level="TRACE" />
+    <logger name="slick.jdbc.JdbcBackend.parameter"         level="TRACE" />
+    <logger name="slick.jdbc.JdbcBackend.benchmark"         level="INFO" />
 </configuration>
