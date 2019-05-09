@@ -175,7 +175,29 @@ final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
 //        strictMax number(1,0),
 //        primary key (id)
 //    );
+final case class JIDataType( dataType: Int,
+                             maxLength: Option[Long],
+                             decimals: Option[Long],
+                             regularExpr: Option[String],
+                             minValue: Option[Array[Byte]],
+                             maxValue: Option[Array[Byte]],
+                             strictMin: Boolean,
+                             strictMax: Boolean,
+                             id: Long = 0L)
 
+final class JIDataTypeTable(tag: Tag) extends Table[JIDataType](tag, "JIDataType") {
+  def dataType = column[Int]("type")
+  def maxLength = column[Option[Long]]("maxLength")
+  def decimals = column[Option[Long]]("decimals")
+  def regularExpr = column[Option[String]]("regularExpr")
+  def minValue = column[Option[Array[Byte]]]("minValue")
+  def maxValue = column[Option[Array[Byte]]]("max_value")
+  def strictMin = column[Boolean]("strictMin")
+  def strictMax = column[Boolean]("strictMax")
+  def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+
+  def * : ProvenShape[JIDataType] = (dataType, maxLength, decimals, regularExpr, minValue, maxValue, strictMin, strictMax, id).mapTo[JIDataType]
+}
 
 // create table JIInputControl (
 //        id number(19,0) not null,
@@ -190,24 +212,37 @@ final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
 //        defaultValue raw(255),
 //        primary key (id)
 //    );
+final case class JIInputControl( controlType: Int,
+                                 dataType: Option[Long],
+                                 listOfValues: Option[Long],
+                                 listQuery: Option[Long],
+                                 queryValueColumn: Option[String],
+                                 defaultValue: Option[Array[Byte]],
+                                 mandatory: Boolean,
+                                 readOnly: Boolean,
+                                 visible: Boolean,
+                                 id: Long = 0L)
 
+final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, "JIInputControl") {
+  def controlType = column[Int]("type")
+  def dataType = column[Option[Long]]("data_type")
+  def listOfValues = column[Option[Long]]("list_of_values")
+  def listQuery = column[Option[Long]]("list_query")
+  def queryValueColumn = column[Option[String]]("query_value_column")
+  def defaultValue = column[Option[Array[Byte]]]("defaultValue")
+  def mandatory = column[Boolean]("mandatory")
+  def readOnly = column[Boolean]("readOnly")
+  def visible = column[Boolean]("visible")
+  def id = column[Long]("id", O.PrimaryKey)
 
+  def * : ProvenShape[JIInputControl] = (controlType, dataType, listOfValues, listQuery, queryValueColumn, defaultValue, mandatory, readOnly, visible, id).mapTo[JIInputControl]
+}
 // create table JIInputControlQueryColumn (
 //        input_control_id number(19,0) not null,
 //        query_column nvarchar2(200) not null,
 //        column_index number(10,0) not null,
 //        primary key (input_control_id, column_index)
 //    );
-
-// create table JIObjectPermission (
-//        id number(19,0) not null,
-//        uri nvarchar2(1000) not null,
-//        recipientobjectclass nvarchar2(250),
-//        recipientobjectid number(19,0),
-//        permissionMask number(10,0) not null,
-//        primary key (id)
-//    );
-
 
 // create table JIReportUnit (
 //        id number(19,0) not null,
@@ -221,6 +256,29 @@ final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
 //        data_snapshot_id number(19,0),
 //        primary key (id)
 //    );
+final case class JIReportUnit( reportDataSource: Option[Long],
+                               query: Option[Long],
+                               mainReport: Option[Long],
+                               controlRenderer: Option[String],
+                               reportRenderer: Option[String],
+                               promptControls: Boolean,
+                               controlsLayout: Int,
+                               dataSnapshotId: Option[Long],
+                               id: Long = 0L)
+
+final class JIReportUnitTable(tag: Tag) extends Table[JIReportUnit](tag, "JIReportUnit") {
+  def reportDataSource = column[Option[Long]]("reportDataSource")
+  def query = column[Option[Long]]("query")
+  def mainReport = column[Option[Long]]("mainReport")
+  def controlRenderer = column[Option[String]]("controlrenderer")
+  def reportRenderer = column[Option[String]]("reportrenderer")
+  def promptControls = column[Boolean]("promptcontrols")
+  def controlsLayout = column[Int]("controlslayout")
+  def dataSnapshotId = column[Option[Long]]("data_snapshot_id")
+  def id = column[Long]("id", O.PrimaryKey)
+
+  def * : ProvenShape[JIReportUnit] = (reportDataSource, query, mainReport, controlRenderer, reportRenderer, promptControls, controlsLayout, dataSnapshotId, id).mapTo[JIReportUnit]
+}
 
 //    create table JIReportUnitResource (
 //        report_unit_id number(19,0) not null,
@@ -228,6 +286,17 @@ final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
 //        resource_index number(10,0) not null,
 //        primary key (report_unit_id, resource_index)
 //    );
+final case class JIReportUnitResource ( reportUnitId: Long,
+                                        resourceId: Long,
+                                        resourceIndex: Int)
+
+final class JIReportUnitResourceTable(tag: Tag) extends Table[JIReportUnitResource](tag, "JIReportUnitResource") {
+  def reportUnitId = column[Long]("report_unit_id")
+  def resourceId = column[Long]("resource_id")
+  def resourceIndex = column[Int]("resource_index")
+
+  def * : ProvenShape[JIReportUnitResource] = (reportUnitId, resourceId, resourceIndex).mapTo[JIReportUnitResource]
+}
 
 //     create table JIReportUnitInputControl (
 //        report_unit_id number(19,0) not null,
@@ -235,7 +304,27 @@ final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
 //        control_index number(10,0) not null,
 //        primary key (report_unit_id, control_index)
 //    );
-//
+final case class JIReportUnitInputControl ( reportUnitId: Long,
+                                            inputControlId: Long,
+                                            controlIndex: Int)
+
+final class JIReportUnitInputControlTable(tag: Tag) extends Table[JIReportUnitInputControl](tag, "JIReportUnitInputControl") {
+  def reportUnitId = column[Long]("report_unit_id")
+  def inputControlId = column[Long]("input_control_id")
+  def controlIndex = column[Int]("control_index")
+
+  def * : ProvenShape[JIReportUnitInputControl] = (reportUnitId, inputControlId, controlIndex).mapTo[JIReportUnitInputControl]
+}
+
+// create table JIObjectPermission (
+//        id number(19,0) not null,
+//        uri nvarchar2(1000) not null,
+//        recipientobjectclass nvarchar2(250),
+//        recipientobjectid number(19,0),
+//        permissionMask number(10,0) not null,
+//        primary key (id)
+//    );
+
 
 
 //     create table JITenant (

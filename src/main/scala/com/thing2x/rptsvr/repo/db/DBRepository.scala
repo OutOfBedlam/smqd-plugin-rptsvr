@@ -19,7 +19,7 @@ import slick.dbio.DBIOAction
 import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 object DBRepository {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -34,12 +34,24 @@ object DBRepository {
   val jdbcResources = TableQuery[JIJdbcDatasourceTable]
   val queryResources = TableQuery[JIQueryTable]
 
+  val reportUnits = TableQuery[JIReportUnitTable]
+  val reportUnitResources = TableQuery[JIReportUnitResourceTable]
+  val reportUnitInputControls = TableQuery[JIReportUnitInputControlTable]
+
+  val dataTypes = TableQuery[JIDataTypeTable]
+  val inputControls = TableQuery[JIInputControlTable]
+
   private val schema = Seq(
     resourceFolders.schema,
     resources.schema,
     fileResources.schema,
     jdbcResources.schema,
     queryResources.schema,
+    dataTypes.schema,
+    inputControls.schema,
+    reportUnits.schema,
+    reportUnitResources.schema,
+    reportUnitInputControls.schema,
   )
 }
 
@@ -419,5 +431,18 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
         case _ => None
       }
     }
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  // ReportUnit
+  /////////////////////////////////////////////////////////////////////////////
+
+  private def insertReportUnit(request: ReportUnitResource): Future[Option[ReportUnitResource]] = {
+    val (parentFolderPath, name) = splitPath(request.uri)
+    request.dataSource
+    request.inputControls
+    request.resources
+    request.jrxml
+    ???
   }
 }
