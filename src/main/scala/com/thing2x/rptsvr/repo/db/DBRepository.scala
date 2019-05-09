@@ -357,18 +357,39 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
           query <- queryResources.filter(_.id === meta.id)
         } yield query
 
-        val publisher = dbContext.database.stream(subact.result).mapResult { r =>
+        val queryPublisher = dbContext.database.stream(subact.result).mapResult { r =>
           val fr = QueryResource(meta.uri, meta.label)
           fr.version = meta.version
           fr.permissionMask = 1
           fr.query = r.sqlQuery.getSubString(1, r.sqlQuery.length.toInt)
           fr.language = r.queryLanguage
-          fr.dataSource = r.dataSource.flatMap { dsId =>
-            Await.result(selectResource(dsId, isReferenced), 3.seconds).map(_.asInstanceOf[DataSourceResource])
-          }
-          fr
+          fr.dataSource = None
+          (fr, r.dataSource)
         }
-        Source.fromPublisher(publisher).runFold(None.asInstanceOf[Option[QueryResource]])((_, b) => Some(b))
+
+        val f = Source.fromPublisher(queryPublisher).runFold(None.asInstanceOf[Option[(QueryResource, Option[Long])]])((_, b) => Some(b))
+
+        val futureResult = for {
+          queryResource <- f.map {
+              case Some((queryResource, _)) => Some(queryResource)
+              case _ => None
+          }
+          dsFuture <- f.map{
+            case Some((_, dsIdOpt)) => dsIdOpt match {
+              case Some(dsId) => selectResource(dsId, isReferenced).map(_.asInstanceOf[Option[DataSourceResource]])
+              case _ => Future( None )
+            }
+            case _ => Future( None )
+          }
+          ds <- dsFuture
+        } yield (queryResource, ds)
+
+        futureResult.map{
+          case (Some(queryResource), ds) =>
+            queryResource.dataSource = ds
+            Some(queryResource)
+          case _ => None
+        }
       case _ =>
         Future( None )
     }
