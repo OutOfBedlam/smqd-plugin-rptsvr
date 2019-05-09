@@ -36,6 +36,15 @@ class ReportUnitResource(val uri: String, val label: String)(implicit context: R
   var inputControls: Seq[InputControlResource] = Seq.empty
   var dataSource: Option[DataSourceResource] = None
 
+  def conrolsLayoutId: Int = {
+    controlsLayout match {
+      case "separatePage" => 1
+      case "topOfPage" => 2
+      case "inPage" => 3
+      case _ => 0 // popupScreen (default)
+    }
+  }
+
   override def encodeFields(expanded: Boolean): Map[String, Json] = {
     val map: mutable.Map[String, Json] = mutable.Map.empty
 
