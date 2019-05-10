@@ -1,10 +1,66 @@
 package com.thing2x.rptsvr.repo.db
 
-import java.sql.{Blob, Clob, Date}
+import java.sql.Date
 
-import com.thing2x.rptsvr.repo.db.DBRepository._
-import slick.lifted.ProvenShape
+import com.thing2x.rptsvr.repo.db.DBSchema._
+import com.thing2x.rptsvr.{FileResource, FolderResource, JdbcDataSourceResource, QueryResource, RepositoryContext, Resource}
+import slick.jdbc.H2Profile
 import slick.jdbc.H2Profile.api._
+import slick.lifted.ProvenShape
+
+import scala.concurrent.duration._
+import scala.language.implicitConversions
+
+object DBSchema {
+  val resources = TableQuery[JIResourceTable]
+  val resourceInsert = resources returning resources.map(_.id)
+
+  val resourceFolders = TableQuery[JIResourceFolderTable]
+  val resourceFolderInsert = resourceFolders returning resourceFolders.map(_.id)
+
+  val fileResources = TableQuery[JIFileResourceTable]
+  val jdbcResources = TableQuery[JIJdbcDatasourceTable]
+  val queryResources = TableQuery[JIQueryTable]
+
+  val reportUnits = TableQuery[JIReportUnitTable]
+  val reportUnitInsert = reportUnits returning reportUnits.map(_.id)
+
+  val reportUnitResources = TableQuery[JIReportUnitResourceTable]
+  val reportUnitInputControls = TableQuery[JIReportUnitInputControlTable]
+
+  val dataTypes = TableQuery[JIDataTypeTable]
+  val inputControls = TableQuery[JIInputControlTable]
+
+  val schema: Seq[H2Profile.DDL] = Seq(
+    resourceFolders.schema,
+    resources.schema,
+    fileResources.schema,
+    jdbcResources.schema,
+    queryResources.schema,
+    dataTypes.schema,
+    inputControls.schema,
+    reportUnits.schema,
+    reportUnitResources.schema,
+    reportUnitInputControls.schema,
+  )
+
+  def createSchema(ctx: DBRepositoryContext): Unit = {
+    implicit val ec = ctx.executionContext
+    val setup = for {
+      // create tables
+      _                <- schema.reduce( _ ++ _).create
+      // insert default tables
+      rootFolderId     <- resourceFolderInsert += JIResourceFolder("/", "/", "/", Some("Root"), -1)
+      orgId            <- resourceFolderInsert += JIResourceFolder("/organizations", "organizations", "Organizations", Some("Oraganizations"), rootFolderId)
+      _                <- resourceFolderInsert += JIResourceFolder("/public", "public", "Public", None, rootFolderId)
+      _                <- resourceFolderInsert += JIResourceFolder("/temp", "temp", "Temp", Some("Temp"), rootFolderId)
+      _                <- resourceFolderInsert += JIResourceFolder("/organizations/organization_1", "organization_1", "Organization", None, orgId)
+    } yield rootFolderId
+
+    ctx.runSync(setup, 8.second)
+  }
+
+}
 
 //    create table JIResourceFolder (
 //        id number(19,0) not null,
@@ -29,7 +85,14 @@ final case class JIResourceFolder( uri: String,
                                    creationDate: Date = new Date(System.currentTimeMillis),
                                    updateDate: Date = new Date(System.currentTimeMillis),
                                    version: Int = -1,
-                                   id: Long = 0L)
+                                   id: Long = 0L){
+  def asApiModel(implicit context: RepositoryContext): FolderResource = {
+    val fr = FolderResource(uri, label)
+    fr.version = version
+    fr.permissionMask = 1
+    fr
+  }
+}
 
 final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIResourceFolder") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
@@ -88,6 +151,25 @@ final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource
   def * = (name, parentFolder, childrenFolder, label, description, resourceType, creationDate, updateDate, version, id).mapTo[JIResource]
 }
 
+//////////////////////////////////////////
+// ResouceKind
+//////////////////////////////////////////
+trait JIResourceKind[+T <: Resource] {
+  def asApiModel(resource: JIResource, uri: String)(implicit context: RepositoryContext): T
+}
+
+object JIResourceObject {
+  implicit def apply(p: (JIResourceFolder, JIResource, JIResourceKind[Resource]))(implicit context: RepositoryContext): JIResourceObject = {
+    JIResourceObject(p._1, p._2, p._3)
+  }
+}
+
+case class JIResourceObject(folder: JIResourceFolder, resource: JIResource, obj: JIResourceKind[Resource])(implicit context: RepositoryContext) {
+  def asApiModel: Resource = {
+    obj.asApiModel(resource, s"${folder.uri}/${resource.name}")
+  }
+}
+
 //    create table JIFileResource (
 //        id number(19,0) not null,
 //        data blob,
@@ -96,13 +178,21 @@ final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource
 //        primary key (id)
 //    );
 final case class JIFileResource( fileType: String,
-                                 data: Option[Blob],
+                                 data: Option[Array[Byte]],
                                  reference: Option[Long],
-                                 id: Long = 0L)
+                                 id: Long = 0L) extends JIResourceKind[FileResource] {
+  override def asApiModel(resource: JIResource, uri: String)(implicit context: RepositoryContext): FileResource = {
+    val fr = FileResource(uri, resource.label)
+    fr.version = resource.version
+    fr.permissionMask = 1
+    fr.fileType = fileType
+    fr
+  }
+}
 
 final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, "JIFileResource") {
   def fileType    = column[String]("file_type")
-  def data   = column[Option[Blob]]("data")
+  def data   = column[Option[Array[Byte]]]("data", O.SqlType("BLOB"))
   def reference    = column[Option[Long]]("reference")
   def id           = column[Long]("id", O.PrimaryKey)
 
@@ -125,7 +215,19 @@ final case class JIJdbcDatasource( driver: String,
                                    username: Option[String],
                                    password: Option[String],
                                    timezone: Option[String],
-                                   id: Long = 0L)
+                                   id: Long = 0L) extends JIResourceKind[JdbcDataSourceResource] {
+  override def asApiModel(resource: JIResource, uri: String)(implicit context: RepositoryContext): JdbcDataSourceResource = {
+    val fr = JdbcDataSourceResource(uri, resource.label)
+    fr.version = resource.version
+    fr.permissionMask = 1
+    fr.driverClass = Some(driver)
+    fr.connectionUrl = connectionUrl
+    fr.username = username
+    fr.password = password
+    fr.timezone = timezone
+    fr
+  }
+}
 
 final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag, "JIJdbcDatasource") {
   def driver = column[String]("driver")
@@ -148,12 +250,23 @@ final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag,
 //        primary key (id)
 //    );
 final case class JIQuery( queryLanguage: String,
-                          sqlQuery: Clob,
+                          sqlQuery: String,
                           dataSource: Option[Long],
-                          id: Long = 0L)
+                          id: Long = 0L) extends JIResourceKind[QueryResource] {
+  override def asApiModel(resource: JIResource, uri: String)(implicit context: RepositoryContext): QueryResource = {
+    val fr = QueryResource(uri, resource.label)
+    fr.version = resource.version
+    fr.permissionMask = 1
+    fr.query = sqlQuery
+    fr.language = queryLanguage
+    fr.dataSource = None
+    fr
+  }
+}
+
 final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
   def queryLanguage = column[String]("query_language")
-  def sqlQuery = column[Clob]("sql_query")
+  def sqlQuery = column[String]("sql_query", O.SqlType("CLOB"))
   def dataSource = column[Option[Long]]("dataSource")
   def id = column[Long]("id", O.PrimaryKey)
 

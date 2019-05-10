@@ -28,6 +28,7 @@ class JdbcDataSourceResource(val uri: String, val label: String)(implicit contex
   override val resourceType: String = "jdbcDataSource"
   override val mediaType: MediaType.WithFixedCharset = MediaType.applicationWithFixedCharset("repository.jdbcDataSource+json", HttpCharsets.`UTF-8`)
 
+  // TODO: driverClass should be not Option
   var driverClass: Option[String] = None
   var username: Option[String] = None
   var password: Option[String] = None

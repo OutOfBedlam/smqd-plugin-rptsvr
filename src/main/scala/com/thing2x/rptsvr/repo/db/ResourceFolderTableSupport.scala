@@ -1,61 +1,53 @@
 package com.thing2x.rptsvr.repo.db
 
 import com.thing2x.rptsvr.FolderResource
-import com.thing2x.rptsvr.repo.db.DBRepository.resourceFolders
+import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.Future
 
 trait ResourceFolderTableSupport { mySelf: DBRepository =>
 
-  def selectFolder(path: String): Future[Option[FolderResource]] = selectFolder(Left(path))
+  def selectResourceFolder(path: String): Future[JIResourceFolder] = selectResourceFolder(Left(path))
 
-  def selectFolder(id: Long): Future[Option[FolderResource]] =  selectFolder(Right(id))
+  def selectResourceFolder(id: Long): Future[JIResourceFolder] =  selectResourceFolder(Right(id))
 
-  def selectFolder(pathOrId: Either[String, Long]): Future[Option[FolderResource]] = {
+  private def selectResourceFolder(pathOrId: Either[String, Long]): Future[JIResourceFolder] = {
     val action = pathOrId match {
       case Left(path) => resourceFolders.filter(_.uri === path)
       case Right(id) => resourceFolders.filter(_.id === id)
     }
-
-    logger.trace(s"selectFolder $pathOrId ${action.result.statements.mkString}")
-
-    dbContext.run(action.result.headOption).map {
-      case Some(r) =>
-        val fr = FolderResource(r.uri, r.label)
-        fr.version = r.version
-        fr.permissionMask = 1
-        Some(fr)
-      case _ =>
-        None
-    }
+    dbContext.run(action.result.head)
   }
 
-  def selectFolderId(path: String): Future[Option[Long]] = {
-    val idQuery = resourceFolders.filter( _.uri === path ).map( _.id )
-    dbContext.run(idQuery.result.headOption)
+  def selectSubFoldersFromResourceFolder(path: String): Future[Seq[JIResourceFolder]] = {
+    val action = for {
+      folderId <- resourceFolders.filter(_.uri === path).map(_.id)
+      childFolders <- resourceFolders.filter(_.parentFolder === folderId)
+    } yield childFolders
+
+    dbContext.run(action.result)
   }
 
-  def insertFolder(request: FolderResource): Future[Option[Long]] = {
+  def selectResourcesFromResourceFolder(path: String): Future[Seq[JIResource]] = {
+    val action = for {
+      folderId <- resourceFolders.filter(_.uri === path).map(_.id)
+      rscs     <- resources.filter(_.parentFolder === folderId)
+    } yield rscs
+
+    dbContext.run(action.result)
+  }
+
+  def insertResourceFolder(request: FolderResource): Future[Long] = {
     val (parentFolderPath, name) = splitPath(request.uri)
-    selectFolderId(parentFolderPath).flatMap {
-      case Some(parentFolderId) =>
-        insertFolder( JIResourceFolder(request.uri, name, request.label, request.description, parentFolderId, version = request.version + 1) )
-          .map( Some(_) )
-      case _ => Future( None )
-    }
+    for {
+      parentFolderId <- selectResourceFolder(parentFolderPath).map(_.id)
+      id <- insertResourceFolder( JIResourceFolder(request.uri, name, request.label, request.description, parentFolderId, version = request.version + 1) )
+    } yield id
   }
 
-  def insertFolder(folder: JIResourceFolder): Future[Long] = {
+  def insertResourceFolder(folder: JIResourceFolder): Future[Long] = {
     val act = resourceFolders returning resourceFolders.map(_.id) += folder
     dbContext.run(act)
   }
-
-  def insertFolderThenSelect(request: FolderResource): Future[Option[FolderResource]] = {
-    insertFolder(request).flatMap {
-      case Some(folderId) => selectFolder( folderId )
-      case _ => Future( None )
-    }
-  }
-
 }

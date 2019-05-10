@@ -1,65 +1,27 @@
 package com.thing2x.rptsvr.repo.db
 
-import java.util.Base64
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.thing2x.rptsvr.Repository.ResourceNotFoundException
 import com.thing2x.rptsvr.api.MimeTypes
-import com.thing2x.rptsvr.repo.db.DBRepository._
-import com.thing2x.rptsvr.{DataSourceResource, FileContent, FileResource, FolderResource, JdbcDataSourceResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
+import com.thing2x.rptsvr.repo.db.DBSchema._
+import com.thing2x.rptsvr.{FileContent, FileResource, FolderResource, JdbcDataSourceResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.sql.rowset.serial.{SerialBlob, SerialClob}
-import org.slf4j.LoggerFactory
-import slick.dbio.DBIOAction
 import slick.jdbc.H2Profile.api._
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-
-object DBRepository {
-  private val logger = LoggerFactory.getLogger(this.getClass)
-
-  val resources = TableQuery[JIResourceTable]
-  val resourceInsert = resources returning resources.map(_.id)
-
-  val resourceFolders = TableQuery[JIResourceFolderTable]
-  val resourceFolderInsert = resourceFolders returning resourceFolders.map(_.id)
-
-  val fileResources = TableQuery[JIFileResourceTable]
-  val jdbcResources = TableQuery[JIJdbcDatasourceTable]
-  val queryResources = TableQuery[JIQueryTable]
-
-  val reportUnits = TableQuery[JIReportUnitTable]
-  val reportUnitInsert = reportUnits returning reportUnits.map(_.id)
-
-  val reportUnitResources = TableQuery[JIReportUnitResourceTable]
-  val reportUnitInputControls = TableQuery[JIReportUnitInputControlTable]
-
-  val dataTypes = TableQuery[JIDataTypeTable]
-  val inputControls = TableQuery[JIInputControlTable]
-
-  private val schema = Seq(
-    resourceFolders.schema,
-    resources.schema,
-    fileResources.schema,
-    jdbcResources.schema,
-    queryResources.schema,
-    dataTypes.schema,
-    inputControls.schema,
-    reportUnits.schema,
-    reportUnitResources.schema,
-    reportUnitInputControls.schema,
-  )
-}
 
 class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(name, smqd, config) with Repository with StrictLogging
   with ResourceFolderTableSupport
-  with FileResourceTableSupport {
+  with ResourceTableSupport
+  with FileResourceTableSupport
+  with JdbcDataSourceTableSupport
+  with QueryTableSupport
+  with ReportUnitTableSupport {
 
   protected implicit val dbContext: DBRepositoryContext =
     new DBRepositoryContext(this, smqd, config)
@@ -75,26 +37,11 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
     }
 
     if (!dbContext.readOnly)
-      createSchema(dbContext)
+      DBSchema.createSchema(dbContext)
   }
 
   override def stop(): Unit = {
     dbContext.close()
-  }
-
-  private def createSchema(ctx: DBRepositoryContext): Unit = {
-    val setup = for {
-      // create tables
-      _                <- schema.reduce( _ ++ _).create
-      // insert default tables
-      rootFolderId     <- resourceFolderInsert += JIResourceFolder("/", "/", "/", Some("Root"), -1)
-      orgId            <- resourceFolderInsert += JIResourceFolder("/organizations", "organizations", "Organizations", Some("Oraganizations"), rootFolderId)
-      _                <- resourceFolderInsert += JIResourceFolder("/public", "public", "Public", None, rootFolderId)
-      _                <- resourceFolderInsert += JIResourceFolder("/temp", "temp", "Temp", Some("Temp"), rootFolderId)
-      _                <- resourceFolderInsert += JIResourceFolder("/organizations/organization_1", "organization_1", "Organization", None, orgId)
-    } yield rootFolderId
-
-    dbContext.runSync(setup, 8.second)
   }
 
   private[db] def splitPath(path: String): (String, String) = {
@@ -105,14 +52,6 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
   }
 
   override def listFolder(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]] = {
-    val folderListQuery = for {
-      folderId <- resourceFolders.filter(_.uri === path).map(_.id)
-      childFolders <- resourceFolders.filter(_.parentFolder === folderId)
-    } yield childFolders
-
-    val childFolderList = dbContext.database.run(folderListQuery.result).map { rset =>
-      rset.map(f => FolderResource(f.uri, f.label))
-    }
 
     val resourceListQuery = for {
       folderId <- resourceFolders.filter(_.uri === path).map(_.id)
@@ -135,281 +74,59 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
     }
 
     for {
-      fl <- childFolderList
-      rl <- resourceList
+      fl <- selectSubFoldersFromResourceFolder(path).map(_.map(_.asApiModel))
+      rl <- resourceList //selectResourcesFromResourceFolder(path).map(_.map(a => ))
     } yield fl ++ rl
   }
 
   override def setResource(path: String, request: Resource, createFolders: Boolean, overwrite: Boolean): Future[Result[Resource]] = {
     logger.debug(s"setResource uri=$path, $request, resourceType=${request.resourceType}")
     val result = request match {
-      case req: FolderResource =>          insertFolderThenSelect(req)
-      case req: FileResource =>            insertFile(req)
-      case req: JdbcDataSourceResource =>  insertJdbcDataSource(req)
-      case req: QueryResource =>           insertQuery(req)
-      case req: ReportUnitResource =>      insertReportUnit(req)
+      case req: FolderResource =>          insertResourceFolder(req).flatMap( selectResourceFolder )
+      case req: FileResource =>            insertFileResource(req).flatMap( selectFileResource )
+      case req: JdbcDataSourceResource =>  insertJdbcDataSourceResource(req).flatMap( selectJdbcDataSourceResource )
+      case req: QueryResource =>           insertQueryResource(req).flatMap( selectQueryResource )
     }
     result.map {
-      case Some(r) => Right(r)
-      case _ => Left(new ResourceNotFoundException(path))
+      case r: JIResourceFolder => Right(r.asApiModel)
+      case r: JIResourceObject => Right(r.asApiModel)
+      case ex: Throwable =>
+        logger.error(s"resource not found", ex)
+        Left(new ResourceNotFoundException(path))
+      case other =>
+        logger.error(s"Unhandled db result $other")
+        Left(new ResourceNotFoundException(path))
     }
   }
 
   override def getResource(path: String, isReferenced: Boolean): Future[Result[Resource]] = {
     logger.debug(s"getResource uri=$path, isReferenced=$isReferenced")
     // find folder with path, if it is not a folder use path as resource
-    selectFolder(path).flatMap {
-      case Some(folder) => Future( Right(folder) )
-      case _ => selectResource(path, isReferenced).map {
-        case Some(resource) => Right(resource)
-        case _ => Left( new ResourceNotFoundException(path) )
-      }
+    selectResourceFolder(path).map { f =>
+      Right(f.asApiModel)
+    }.recoverWith {
+      case ex: Throwable =>
+        selectResource(path).flatMap { resource =>
+          resource.resourceType match {
+            case JIResourceTypes.file =>              selectFileResource(resource.id).map( _.asApiModel )
+            case JIResourceTypes.jdbcDataSource =>    selectJdbcDataSourceResource(resource.id).map( _.asApiModel )
+            case JIResourceTypes.query =>             selectQueryResource(resource.id).map( _.asApiModel )
+            // TODO:
+//            case JIResourceTypes.reportUnit => ???
+            case _ => ???
+          }
+
+        }
     }
   }
 
   override def getContent(path: String): Future[Either[Throwable, FileContent]] = {
-    val (parentFolderPath, name) = splitPath(path)
-    val resourceAction = for {
-      parentFolder <- resourceFolders.filter( _.uri === parentFolderPath )
-      resource     <- resources.filter( _.parentFolder === parentFolder.id).filter( _.name === name )
-      content      <- fileResources.filter ( _.id === resource.id )
-    } yield (resource, content)
-
-    val rset = dbContext.database.run(resourceAction.result.headOption)
-    val rt = rset.map {
-      case Some((resource, content)) =>
-        val contentAction = fileResources.filter( _.id === resource.id ).map( _.data ).take(1)
-        val stream = dbContext.database.stream(contentAction.result).mapResult{
-          case Some(data) => ByteString(data.getBytes(0, data.length.toInt))
-          case _ =>          ByteString.empty
-        }
-        val src = Source.fromPublisher(stream)
-        Right(FileContent(path, src, MimeTypes.mimeTypeOf( content.fileType, resource.name )))
-      case _ =>
-        Left(new ResourceNotFoundException(path))
+    selectFileResource(path).map { ro =>
+      val file = ro.obj.asInstanceOf[JIFileResource]
+      val src = file.data.map( d => Source.fromFuture(Future( ByteString(d) )) ).getOrElse(Source.empty)
+      Right(FileContent(path, src, MimeTypes.mimeTypeOf( file.fileType, ro.resource.name )))
     }
-    rt
   }
 
   override def deleteResource(path: String): Future[Boolean] = ???
-
-  private[db] def selectResource(id: Long, isReferenced: Boolean): Future[Option[Resource]] = {
-    selectResource(Right(id), isReferenced)
-  }
-  private[db] def selectResource(path: String, isReferenced: Boolean): Future[Option[Resource]] = {
-    selectResource(Left(path), isReferenced)
-  }
-
-  private [db]def selectResource(pathOrId: Either[String, Long], isReferenced: Boolean): Future[Option[Resource]] = {
-    selectResourceMeta(pathOrId).flatMap{
-      case Some(meta) =>
-        meta.resourceType match {
-          case JIResourceTypes.file =>              selectFile(meta)
-          case JIResourceTypes.jdbcDataSource =>    selectJdbcDataSource(meta)
-          case JIResourceTypes.query =>             selectQuery(meta, isReferenced)
-          case JIResourceTypes.reportUnit => ???
-          case _ => ???
-        }
-      case _ =>
-        Future(None)
-    }
-  }
-
-  private[db] case class ResourceMeta(id: Long, name: String, label: String, resourceType: String, version: Int, uri: String,
-                                  parentFolderId: Long, parentFolderUri: String)
-
-  private[db] def selectResourceMeta(id: Long): Future[Option[ResourceMeta]] =
-    selectResourceMeta(Right(id))
-
-  private[db] def selectResourceMeta(path: String): Future[Option[ResourceMeta]] =
-    selectResourceMeta(Left(path))
-
-  private[db] def selectResourceMeta(pathOrId: Either[String, Long]): Future[Option[ResourceMeta]] = {
-    logger.trace(s"selectResourceMeta $pathOrId")
-    val action = pathOrId match {
-      case Right(id) =>
-        for {
-          resource <- resources.filter(_.id === id)
-          parentFolder <- resource.parentFolderFk
-        } yield (resource, parentFolder)
-      case Left(path) =>
-        val (parentFolderPath, name) = splitPath(path)
-        for {
-          parentFolder <- resourceFolders.filter(_.uri === parentFolderPath)
-          resource <- resources.filter(_.parentFolder === parentFolder.id).filter(_.name === name)
-        } yield (resource, parentFolder)
-    }
-    dbContext.run(action.result.headOption).map {
-      case Some((resource, folder)) =>
-        logger.trace(s"selectResourceMeta $pathOrId $resource $folder")
-        Some(ResourceMeta(resource.id, resource.name, resource.label, resource.resourceType, resource.version,
-          s"${folder.uri}/${resource.name}", folder.id, folder.uri))
-      case _ =>
-        logger.debug(s"selectResourceMeta $pathOrId not found")
-        None
-    }
-  }
-
-  /////////////////////////////////////////////////////////////////////////////
-  // JdbcDataSource
-  /////////////////////////////////////////////////////////////////////////////
-
-  private def selectJdbcDataSource(meta: ResourceMeta): Future[Option[JdbcDataSourceResource]] = {
-    meta.resourceType match {
-      case JIResourceTypes.jdbcDataSource =>
-        val subact = jdbcResources.filter(_.id === meta.id)
-        dbContext.run(subact.result.head).map{ r =>
-          val fr = JdbcDataSourceResource(meta.uri, meta.label)
-          fr.version = meta.version
-          fr.permissionMask = 1
-          fr.driverClass = Some(r.driver)
-          fr.connectionUrl = r.connectionUrl
-          fr.username = r.username
-          fr.password = r.password
-          fr.timezone = r.timezone
-          Some(fr)
-        }
-      case _ =>
-        Future( None )
-    }
-  }
-
-  private def insertJdbcDataSource(request: JdbcDataSourceResource): Future[Option[JdbcDataSourceResource]] = {
-    val (parentFolderPath, name) = splitPath(request.uri)
-    val action = for {
-      parentFolder <- resourceFolders.filter(_.uri === parentFolderPath).result.head
-      fileId       <- resourceInsert += JIResource(name, parentFolder.id, None, request.label, request.description, JIResourceTypes.jdbcDataSource)
-      _            <- jdbcResources += JIJdbcDatasource(request.driverClass.get, request.connectionUrl, request.username, request.password, request.timezone, fileId)
-    } yield fileId
-    dbContext.run(action).flatMap { r =>
-      selectResource(r, isReferenced = true) map {
-        case Some(jdbc) => Some(jdbc.asInstanceOf[JdbcDataSourceResource])
-        case _ => None
-      }
-    }
-  }
-
-  /////////////////////////////////////////////////////////////////////////////
-  // Query
-  /////////////////////////////////////////////////////////////////////////////
-
-  private def selectQuery(meta: ResourceMeta, isReferenced: Boolean): Future[Option[QueryResource]] = {
-    meta.resourceType match {
-      case JIResourceTypes.query =>
-        val subact = for {
-          query <- queryResources.filter(_.id === meta.id)
-        } yield query
-
-        val queryPublisher = dbContext.database.stream(subact.result).mapResult { r =>
-          val fr = QueryResource(meta.uri, meta.label)
-          fr.version = meta.version
-          fr.permissionMask = 1
-          fr.query = r.sqlQuery.getSubString(1, r.sqlQuery.length.toInt)
-          fr.language = r.queryLanguage
-          fr.dataSource = None
-          (fr, r.dataSource)
-        }
-
-        val f = Source.fromPublisher(queryPublisher).runFold(None.asInstanceOf[Option[(QueryResource, Option[Long])]])((_, b) => Some(b))
-
-        val futureResult = for {
-          queryResource <- f.map {
-              case Some((queryResource, _)) => Some(queryResource)
-              case _ => None
-          }
-          dsFuture <- f.map{
-            case Some((_, dsIdOpt)) => dsIdOpt match {
-              case Some(dsId) => selectResource(dsId, isReferenced).map(_.asInstanceOf[Option[DataSourceResource]])
-              case _ => Future( None )
-            }
-            case _ => Future( None )
-          }
-          ds <- dsFuture
-        } yield (queryResource, ds)
-
-        futureResult.map{
-          case (Some(queryResource), ds) =>
-            queryResource.dataSource = ds
-            Some(queryResource)
-          case _ => None
-        }
-      case _ =>
-        Future( None )
-    }
-  }
-
-  private def insertQuery(request: QueryResource): Future[Option[QueryResource]] = {
-    val (parentFolderPath, name) = splitPath(request.uri)
-    val dataSourceId = request.dataSource match {
-      case Some(ds) =>
-        val (parentPath, name) = splitPath(ds.uri)
-        val dsAction = for {
-          parentFolder <- resourceFolders.filter(_.uri === parentPath)
-          dsRscId      <- resources.filter(_.parentFolder === parentFolder.id).filter(_.name === name).map(_.id)
-        } yield dsRscId
-        dbContext.run(dsAction.result.headOption)
-      case _ => Future(None)
-    }
-    val action = for {
-      dsId         <- DBIOAction.from(dataSourceId)
-      parentFolder <- resourceFolders.filter(_.uri === parentFolderPath).result.head
-      fileId       <- resourceInsert += JIResource(name, parentFolder.id, None, request.label, request.description, JIResourceTypes.query)
-      _            <- queryResources += JIQuery(request.language, new SerialClob(request.query.toCharArray), dsId, fileId)
-    } yield fileId
-    dbContext.run(action).flatMap { r =>
-      selectResource(r, isReferenced = true) map {
-        case Some(query) => Some(query.asInstanceOf[QueryResource])
-        case _ => None
-      }
-    }
-  }
-
-  /////////////////////////////////////////////////////////////////////////////
-  // ReportUnit
-  /////////////////////////////////////////////////////////////////////////////
-
-  private def insertReportUnit(request: ReportUnitResource): Future[Option[ReportUnitResource]] = {
-    val dataSourceIdFuture = request.dataSource match {
-      case Some(ds) =>
-        selectResourceMeta(ds.uri).map {
-          case Some(m) => Some(m.id)
-          case _ => None
-        }
-      case _ => Future( None )
-    }
-
-    val (parentFolderPath, name) = splitPath(request.uri)
-    val filesFolderName = s"${name}_files"
-    val filesFolderPath = s"$parentFolderPath/${name}_files"
-
-    val filesFolderIdQuery = for {
-      parentFolderId <- DBIOAction.from( selectFolderId(parentFolderPath) )
-      filesFolderId <- resourceFolderInsert += JIResourceFolder(filesFolderPath, filesFolderName, filesFolderName, None, parentFolderId.get, true)
-    } yield filesFolderId
-
-    val ruQuery = for {
-      dataSourceId    <- DBIOAction.from( dataSourceIdFuture )
-      _               <- filesFolderIdQuery
-      jrxmlFileId     <- DBIOAction.from( insertFile( request.jrxml.get ))
-      jrxmlResourceId <- reportUnitInsert += JIReportUnit(dataSourceId, None, None, None, None, request.alwaysPromptControls, request.conrolsLayoutId, None)
-    } yield jrxmlResourceId
-
-    dbContext.run(ruQuery).map { ruId =>
-
-      logger.info(s"=============> $ruId")
-      ???
-    }
-//    request.dataSource
-//    request.inputControls
-//    request.resources
-//    request.jrxml
-  }
-
-  /////////////////////////////////////////////////////////////////////////////
-  // ReportUnitInputControl
-  /////////////////////////////////////////////////////////////////////////////
-
-  /*
-  1 Boolean None
-   */
 }
