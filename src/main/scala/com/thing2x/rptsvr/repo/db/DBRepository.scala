@@ -5,13 +5,11 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.thing2x.rptsvr.Repository.ResourceNotFoundException
 import com.thing2x.rptsvr.api.MimeTypes
-import com.thing2x.rptsvr.repo.db.DBSchema._
 import com.thing2x.rptsvr.{FileContent, FileResource, FolderResource, JdbcDataSourceResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -52,30 +50,18 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
   }
 
   override def listFolder(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]] = {
-
-    val resourceListQuery = for {
-      folderId <- resourceFolders.filter(_.uri === path).map(_.id)
-      rscs     <- resources.filter(_.parentFolder === folderId)
-    } yield rscs
-
-    val resourceList = dbContext.database.run(resourceListQuery.result).map { rset =>
-      rset.map{ f =>
-        f.resourceType match {
-          case JIResourceTypes.reportUnit =>
-            ReportUnitResource(path+"/"+f.name, f.label)
-          case JIResourceTypes.jdbcDataSource =>
-            FileResource(path+"/"+f.name, f.label)
-          case JIResourceTypes.file =>
-            FileResource(path+"/"+f.name, f.label)
-          case _ =>
-            FileResource(path+"/"+f.name, f.label)
-        }
-      }
-    }
-
     for {
-      fl <- selectSubFoldersFromResourceFolder(path).map(_.map(_.asApiModel))
-      rl <- resourceList //selectResourcesFromResourceFolder(path).map(_.map(a => ))
+      fl <- selectSubFoldersFromResourceFolder(path).map(_.map( _.asApiModel ))
+      rl <- selectResourcesFromResourceFolder(path).map( _.map { r => r.resourceType match {
+        case JIResourceTypes.reportUnit =>
+          ReportUnitResource(path + "/" + r.name, r.label)
+        case JIResourceTypes.jdbcDataSource =>
+          FileResource(path + "/" + r.name, r.label)
+        case JIResourceTypes.file =>
+          FileResource(path + "/" + r.name, r.label)
+        case _ =>
+          FileResource(path + "/" + r.name, r.label)
+      }})
     } yield fl ++ rl
   }
 

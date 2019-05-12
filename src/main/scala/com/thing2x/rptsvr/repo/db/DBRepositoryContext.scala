@@ -7,12 +7,11 @@ import akka.stream.Materializer
 import com.thing2x.rptsvr.{Repository, RepositoryContext}
 import com.thing2x.smqd.Smqd
 import com.typesafe.config.Config
-import slick.basic.DatabasePublisher
 import slick.jdbc.H2Profile.api._
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Config) extends RepositoryContext {
 
