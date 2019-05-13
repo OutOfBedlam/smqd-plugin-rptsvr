@@ -17,6 +17,7 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
   with ResourceFolderTableSupport
   with ResourceTableSupport
   with FileResourceTableSupport
+  with DataSourceSupport
   with JdbcDataSourceTableSupport
   with QueryTableSupport
   with ReportUnitTableSupport {

@@ -35,6 +35,7 @@ class ReportUnitResource(val uri: String, val label: String)(implicit context: R
   var resources: Map[String, FileResource] = Map.empty
   var inputControls: Seq[InputControlResource] = Seq.empty
   var dataSource: Option[DataSourceResource] = None
+  var query: Option[QueryResource] = None
 
   def conrolsLayoutId: Int = {
     controlsLayout match {
@@ -95,6 +96,20 @@ class ReportUnitResource(val uri: String, val label: String)(implicit context: R
       else {
         Json.obj(
           "dataSourceReference" -> Json.obj("uri" -> Json.fromString(ds.uri))
+        )
+      }
+    }
+
+    if (query.isDefined) {
+      val q = query.get
+      map("query") = if (expanded) {
+        Json.obj (
+          q.resourceType -> q.asJson(expanded)
+        )
+      }
+      else {
+        Json.obj(
+          "queryReference" -> Json.obj("uri" -> Json.fromString(q.uri))
         )
       }
     }

@@ -218,6 +218,17 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
     }
   }
 
+  it should "retrieve jdbc datasource" in {
+    Get(s"/rptsvr/rest_v2/resources/$foldername/$jdbcname?expanded=true") ~> routes ~> check {
+      status shouldEqual StatusCodes.OK
+      val content = entityAs[String]
+      val json = parser.parse(content).right.get
+      logger.info(json.spaces2)
+      val cur = json.hcursor
+      assert (cur.downField("uri").as[String].right.get == s"/$foldername/$jdbcname")
+    }
+  }
+
   /////////////////////////////////////////////////
   // write query resource
   val queryname = "select_all_sample_table"
@@ -247,6 +258,18 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
         val cur = json.hcursor
         assert (cur.downField("uri").as[String].right.get == s"/$foldername/$queryname")
       }
+    }
+  }
+
+  it should "retrieve query" in {
+    Get(s"/rptsvr/rest_v2/resources/$foldername/$queryname?expanded=true") ~> routes ~> check {
+      status shouldEqual StatusCodes.OK
+      val content = entityAs[String]
+      val json = parser.parse(content).right.get
+      logger.info(json.spaces2)
+      val cur = json.hcursor
+      assert (cur.downField("uri").as[String].right.get == s"/$foldername/$queryname")
+      assert (cur.downField("value").as[String].right.get == s"select * from sample_table")
     }
   }
 
