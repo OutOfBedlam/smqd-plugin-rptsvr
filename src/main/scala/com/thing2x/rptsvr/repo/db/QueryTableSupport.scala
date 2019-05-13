@@ -42,7 +42,7 @@ trait QueryTableSupport { mySelf: DBRepository =>
     for {
       dsId            <- dsFuture
       parentFolderId  <- selectResourceFolder(parentFolderPath).map( _.id )
-      resourceId      <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, JIResourceTypes.file, version = request.version + 1 ))
+      resourceId      <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, JIResourceTypes.query, version = request.version + 1 ))
       queryResourceId <- insertQueryResource( JIQuery(request.language, request.query, dsId, resourceId) )
     } yield queryResourceId
   }

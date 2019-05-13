@@ -4,4 +4,5 @@ import scala.concurrent.Future
 
 trait DataSourceSupport { myself: DBRepository =>
   def selectDataSource(path: String): Future[JIResourceObject] = ???
+  def selectDataSource(id: Long): Future[JIResourceObject] = ???
 }

@@ -218,7 +218,7 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
     }
   }
 
-  it should "retrieve jdbc datasource" in {
+  it should "be retrieved" in {
     Get(s"/rptsvr/rest_v2/resources/$foldername/$jdbcname?expanded=true") ~> routes ~> check {
       status shouldEqual StatusCodes.OK
       val content = entityAs[String]
@@ -261,7 +261,7 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
     }
   }
 
-  it should "retrieve query" in {
+  it should "be retrieved" in {
     Get(s"/rptsvr/rest_v2/resources/$foldername/$queryname?expanded=true") ~> routes ~> check {
       status shouldEqual StatusCodes.OK
       val content = entityAs[String]
