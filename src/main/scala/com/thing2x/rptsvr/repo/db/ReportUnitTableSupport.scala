@@ -41,14 +41,51 @@ final class JIReportUnitTable(tag: Tag) extends Table[JIReportUnit](tag, "JIRepo
   def dataSnapshotId = column[Option[Long]]("data_snapshot_id")
   def id = column[Long]("id", O.PrimaryKey)
 
+  def idFk = foreignKey("jireportunit_id_fk", id, resources)(_.id)
+  def queryFk = foreignKey("jireportunit_query_fk", query, queryResources)(_.id.?)
+  def mainReportFk = foreignKey("jireportunit_mainreport_fk", mainReport, reportUnits)(_.id.?)
+
   def * : ProvenShape[JIReportUnit] = (reportDataSource, query, mainReport, controlRenderer, reportRenderer, promptControls, controlsLayout, dataSnapshotId, id).mapTo[JIReportUnit]
 }
 
 
+final case class JIReportUnitModel(reportUnit: JIReportUnit, resource: JIResource, uri: String) extends JIDataModelKind
 
 trait ReportUnitTableSupport { mySelf: DBRepository =>
 
-  def insertReportUnit(request: ReportUnitResource): Future[Option[ReportUnitResource]] = {
+  def asApiModel(model: JIReportUnitModel): ReportUnitResource = {
+    val fr = ReportUnitResource(model.uri, model.resource.label)
+
+    fr
+  }
+
+  def selectReportUnit(path: String): Future[JIReportUnitModel] = selectReportUnit(Left(path))
+
+  def selectReportUnit(id: Long): Future[JIReportUnitModel] = selectReportUnit(Right(id))
+
+  private def selectReportUnit(pathOrId: Either[String, Long]): Future[JIReportUnitModel] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        val (folderPath, name) = splitPath(path)
+        for {
+          folder     <- resourceFolders.filter(_.uri === folderPath)
+          resource   <- resources.filter(_.name === name)
+          reportUnit <- reportUnits.filter(_.id === resource.id)
+        } yield (reportUnit, resource, folder)
+      case Right(id) =>
+        for {
+          reportUnit    <- reportUnits.filter(_.id === id)
+          resource      <- reportUnit.idFk
+          folder        <- resource.parentFolderFk
+        } yield (reportUnit, resource, folder)
+    }
+
+    dbContext.run(action.result.head).map{ case (ru, resource, folder) =>
+      JIReportUnitModel(ru, resource, s"${folder.uri}/${resource.name}")
+    }
+  }
+
+  def insertReportUnit(request: ReportUnitResource): Future[Long] = {
     val (parentFolderPath, name) = splitPath(request.uri)
     val filesFolderName = s"${name}_files"
     val filesFolderPath = s"$parentFolderPath/${name}_files"
@@ -70,17 +107,27 @@ trait ReportUnitTableSupport { mySelf: DBRepository =>
       parentFolderId <- selectResourceFolder(parentFolderPath).map( _.id )
       dsId           <- mainDsId
       queryId        <- queryId
+      // save report unit resource
       resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, JIResourceTypes.reportUnit, version = request.version + 1) )
       _              <- insertReportUnit( JIReportUnit(dsId, queryId, None, None, None, request.alwaysPromptControls, request.conrolsLayoutId, None, resourceId))
+      // create _files folder
       filesFolderId  <- insertResourceFolder( JIResourceFolder(filesFolderPath, filesFolderName, filesFolderName, None, parentFolderId, hidden = true) )
-      _              <- insertFileResource( JIFileResource(JIResourceTypes.reportUnit, jrxmlContent, None) )
+      // save jrxml resource
+      jrxmlResourceId <- insertResource( JIResource(request.jrxml.get.label, filesFolderId, None, request.jrxml.get.label, request.jrxml.get.description, JIResourceTypes.file, version = request.jrxml.get.version + 1))
+      _               <- insertFileResource( JIFileResource(JIResourceTypes.reportUnit, jrxmlContent, None, jrxmlResourceId) )
+      // save resource files
+//      _              <- request.resources.foreach { case (name, rsc) =>
+//          insertFileResource( JIFileResource())
+//      }
+      // save inputControls
+      //_ <- reportUnitInputControls
     } yield resourceId
 
     //    request.dataSource
     //    request.inputControls
     //    request.resources
     //    request.jrxml
-    ???
+    reportUnitId
   }
 
   def insertReportUnit(ru: JIReportUnit): Future[Long] = {
@@ -88,11 +135,4 @@ trait ReportUnitTableSupport { mySelf: DBRepository =>
     dbContext.run(action).map( _ => ru.id )
   }
 
-  /////////////////////////////////////////////////////////////////////////////
-  // ReportUnitInputControl
-  /////////////////////////////////////////////////////////////////////////////
-
-  /*
-  1 Boolean None
-   */
 }

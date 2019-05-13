@@ -1,7 +1,6 @@
 package com.thing2x.rptsvr.repo.db
+import com.thing2x.rptsvr.QueryResource
 import com.thing2x.rptsvr.repo.db.DBSchema._
-import com.thing2x.rptsvr.{QueryResource, RepositoryContext}
-import slick.dbio.DBIOAction
 import slick.jdbc.H2Profile.api._
 import slick.lifted.ProvenShape
 
@@ -32,7 +31,7 @@ final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
 }
 
 
-final case class JIQueryModel(query: JIQuery, resource: JIResource, uri: String, ds: Option[JIDataSourceModel])
+final case class JIQueryModel(query: JIQuery, resource: JIResource, uri: String, ds: Option[JIDataSourceModel]) extends JIDataModelKind
 
 trait QueryTableSupport { mySelf: DBRepository =>
 

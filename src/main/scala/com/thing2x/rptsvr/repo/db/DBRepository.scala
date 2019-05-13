@@ -3,9 +3,8 @@ package com.thing2x.rptsvr.repo.db
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.thing2x.rptsvr.Repository.ResourceNotFoundException
 import com.thing2x.rptsvr.api.MimeTypes
-import com.thing2x.rptsvr.{DataSourceResource, FileContent, FileResource, FolderResource, JdbcDataSourceResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
+import com.thing2x.rptsvr.{DataSourceResource, FileContent, FileResource, FolderResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
@@ -20,6 +19,7 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
   with DataSourceSupport
   with QueryTableSupport
   with DataTypeTableSupport
+  with ListOfValuesTableSupport
   with ReportUnitTableSupport {
 
   protected implicit val dbContext: DBRepositoryContext =
@@ -73,18 +73,20 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
       case req: FileResource =>            insertFileResource(req).flatMap( selectFileResource )
       case req: DataSourceResource =>      insertDataSourceResource(req).flatMap( selectDataSourceResource )
       case req: QueryResource =>           insertQueryResource(req).flatMap( selectQueryResource )
+      case req: ReportUnitResource =>      insertReportUnit(req).flatMap( selectReportUnit )
     }
     result.map {
       case r: JIResourceFolder => Right(asApiModel(r))
       case r: JIFileResourceModel => Right(asApiModel(r))
       case r: JIQueryModel => Right(asApiModel(r))
       case r: JIDataSourceModel => Right(asApiModel(r))
-      case ex: Throwable =>
-        logger.error(s"resource not found", ex)
-        Left(new ResourceNotFoundException(path))
-      case other =>
+      case r: JIReportUnitModel => Right(asApiModel(r))
+      case other: JIDataModelKind =>
         logger.error(s"Unhandled db result $other")
-        Left(new ResourceNotFoundException(path))
+        Left(new RuntimeException(s"Unimplemented resource $other: $path"))
+//      case ex: Throwable =>
+//        logger.error(s"resource not found", ex)
+//        Left(new ResourceNotFoundException(path))
     }
   }
 
@@ -102,8 +104,9 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
             case JIResourceTypes.file =>              selectFileResource(resource.id).map( m => asApiModel(m).asInstanceOf[Resource] )
             case JIResourceTypes.jdbcDataSource =>    selectDataSourceResource(resource.id).map(m => asApiModel(m).asInstanceOf[Resource] )
             case JIResourceTypes.query =>             selectQueryResource(resource.id).map{ m => asApiModel(m).asInstanceOf[Resource] }
+            case JIResourceTypes.reportUnit =>        selectReportUnit(resource.id).map{ m => asApiModel(m).asInstanceOf[Resource] }
             // TODO:
-//            case JIResourceTypes.reportUnit => ???
+//             => ???
             case _ => ???
           }
 

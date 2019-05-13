@@ -2,7 +2,7 @@ package com.thing2x.rptsvr.repo.db
 
 import java.sql.Date
 
-import com.thing2x.rptsvr.{FolderResource, RepositoryContext}
+import com.thing2x.rptsvr.FolderResource
 import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.jdbc.H2Profile.api._
 
@@ -31,7 +31,7 @@ final case class JIResourceFolder( uri: String,
                                    creationDate: Date = new Date(System.currentTimeMillis),
                                    updateDate: Date = new Date(System.currentTimeMillis),
                                    version: Int = -1,
-                                   id: Long = 0L)
+                                   id: Long = 0L) extends JIDataModelKind
 
 
 final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIResourceFolder") {

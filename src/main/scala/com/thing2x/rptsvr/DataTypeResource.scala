@@ -25,11 +25,23 @@ class DataTypeResource(val uri: String, val label: String)(implicit context: Rep
 
   var `type`: String = "text" // "text|number|date|dateTime|time"
   var pattern: Option[String] = None
-  var maxValue: Option[String] = None
-  var minValue: Option[String] = None
+  var maxValue: Option[String] = None // base64 encoded binary data
+  var minValue: Option[String] = None // base64 encoded binary data
   var maxLength: Option[Int] = None
+  var decimals: Option[Int] = None
+  var regularExpr: Option[String] = None
   var strictMax: Boolean = false
   var strictMin: Boolean = false
+
+  def typeId: Int = {
+    `type` match {
+      case "text" => 1
+      case "number" => 2
+      case "date" => 3
+      case "dateTime" => 4
+      case "time" => 5
+    }
+  }
 
   override def encodeFields(expanded: Boolean): Map[String, Json] = {
     val map: mutable.Map[String, Json] = mutable.Map.empty
@@ -40,6 +52,8 @@ class DataTypeResource(val uri: String, val label: String)(implicit context: Rep
     if (maxLength.isDefined) map("maxLength") = Json.fromInt(maxLength.get)
     if (minValue.isDefined) map("minValue") = Json.fromString(minValue.get)
     if (pattern.isDefined) map("pattern") = Json.fromString(pattern.get)
+    if (decimals.isDefined) map("decimals") = Json.fromInt(decimals.get)
+    if (regularExpr.isDefined) map("regularExpr") = Json.fromString(regularExpr.get)
     Map(map.toSeq:_*)
   }
 
@@ -51,6 +65,8 @@ class DataTypeResource(val uri: String, val label: String)(implicit context: Rep
     maxLength = cur.downField("maxLength").as[Option[Int]].right.get
     strictMax = cur.downField("strictMax").as[Boolean].right.getOrElse(false)
     strictMin = cur.downField("strictMin").as[Boolean].right.getOrElse(false)
+    decimals = cur.downField("decimals").as[Option[Int]].right.get
+    regularExpr = cur.downField("regularExpr").as[Option[String]].right.get
     Right(this)
   }
 

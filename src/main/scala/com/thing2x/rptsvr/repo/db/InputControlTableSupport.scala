@@ -1,7 +1,11 @@
 package com.thing2x.rptsvr.repo.db
 
+import com.thing2x.rptsvr.InputControlResource
+import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.jdbc.H2Profile.api._
 import slick.lifted.ProvenShape
+
+import scala.concurrent.Future
 
 
 // create table JIInputControl (
@@ -38,11 +42,40 @@ final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, "JI
   def mandatory = column[Boolean]("mandatory")
   def readOnly = column[Boolean]("readOnly")
   def visible = column[Boolean]("visible")
+
   def id = column[Long]("id", O.PrimaryKey)
+
+  def idFk = foreignKey("jiinputcontrol_id_fk", id, resources)(_.id)
 
   def * : ProvenShape[JIInputControl] = (controlType, dataType, listOfValues, listQuery, queryValueColumn, defaultValue, mandatory, readOnly, visible, id).mapTo[JIInputControl]
 }
 
-trait InputControlTableSupport {
+trait InputControlTableSupport { mySelf: DBRepository =>
 
+  def insertInputControl(ctl: InputControlResource): Future[Long] = {
+    val (folderPath, name) = splitPath(ctl.uri)
+
+    val dtIdFuture = ctl.dataType match {
+      case Some(dt) => insertDataType(dt).map( Some(_) )
+      case _ => Future( None )
+    }
+
+    val lvIdFuture = ctl.listOfValues match {
+      case Some(lv) => insertListOfValues(lv).map( Some(_) )
+      case _ => Future ( None )
+    }
+
+    for {
+      folder       <- selectResourceFolder(folderPath)
+      dataTypeId   <- dtIdFuture
+      lvId         <- lvIdFuture
+      resourceId   <- insertResource( JIResource(name, folder.id, None, ctl.label, ctl.description, JIResourceTypes.inputControl, version = ctl.version + 1))
+      _            <- insertInputControl( JIInputControl(ctl.controlType, dataTypeId, lvId, None, None, None, ctl.mandatory, ctl.readOnly, ctl.visible) )
+    } yield resourceId
+  }
+
+  def insertInputControl(ctl: JIInputControl): Future[Long] = {
+    val action = inputControls += ctl
+    dbContext.run(action).map( _ => ctl.id)
+  }
 }

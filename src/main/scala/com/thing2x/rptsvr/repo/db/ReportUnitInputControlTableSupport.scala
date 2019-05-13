@@ -1,7 +1,10 @@
 package com.thing2x.rptsvr.repo.db
 
+import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.jdbc.H2Profile.api._
 import slick.lifted.ProvenShape
+
+import scala.concurrent.Future
 
 //     create table JIReportUnitInputControl (
 //        report_unit_id number(19,0) not null,
@@ -19,4 +22,12 @@ final class JIReportUnitInputControlTable(tag: Tag) extends Table[JIReportUnitIn
   def controlIndex = column[Int]("control_index")
 
   def * : ProvenShape[JIReportUnitInputControl] = (reportUnitId, inputControlId, controlIndex).mapTo[JIReportUnitInputControl]
+}
+
+trait ReportUnitInputControlTableSupport { mySelf: DBRepository =>
+
+  def insertReportUnitInputControl(ctl: JIReportUnitInputControl): Future[Long] = {
+    val action = reportUnitInputControls += ctl
+    dbContext.run(action).map( _ => ctl.inputControlId )
+  }
 }
