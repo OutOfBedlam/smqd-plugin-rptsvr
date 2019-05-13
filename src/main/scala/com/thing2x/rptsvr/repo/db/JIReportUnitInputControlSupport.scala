@@ -24,7 +24,7 @@ final class JIReportUnitInputControlTable(tag: Tag) extends Table[JIReportUnitIn
   def * : ProvenShape[JIReportUnitInputControl] = (reportUnitId, inputControlId, controlIndex).mapTo[JIReportUnitInputControl]
 }
 
-trait ReportUnitInputControlTableSupport { mySelf: DBRepository =>
+trait JIReportUnitInputControlSupport { mySelf: DBRepository =>
 
   def insertReportUnitInputControl(ctl: JIReportUnitInputControl): Future[Long] = {
     val action = reportUnitInputControls += ctl

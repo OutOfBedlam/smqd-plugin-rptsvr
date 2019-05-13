@@ -38,9 +38,9 @@ final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag,
 }
 
 
-final case class JIDataSourceModel(ds: AnyRef, resource: JIResource, uri: String) extends JIDataModelKind
+final case class JIDataSourceModel(ds: AnyRef, resource: JIResource, uri: String) extends DBModelKind
 
-trait DataSourceSupport { myself: DBRepository =>
+trait JIDataSourceSupport { myself: DBRepository =>
 
   def asApiModel(model: JIDataSourceModel): DataSourceResource = {
     model.ds match {
@@ -81,9 +81,9 @@ trait DataSourceSupport { myself: DBRepository =>
 
     dbContext.run(action.result.head).flatMap{ case (resource, folder) =>
       val subQuery = resource.resourceType match {
-        case JIResourceTypes.jdbcDataSource =>
+        case DBResourceTypes.jdbcDataSource =>
           jdbcResources.filter(_.id === resource.id)
-        case JIResourceTypes.jndiJdbcDataSource => ???
+        case DBResourceTypes.jndiJdbcDataSource => ???
       }
       dbContext.run(subQuery.result.head).map{ ds =>
         JIDataSourceModel(ds, resource, s"${folder.uri}/${resource.name}")
@@ -101,7 +101,7 @@ trait DataSourceSupport { myself: DBRepository =>
     val (parentFolderPath, name) = splitPath(request.uri)
     for {
       parentFolderId <- selectResourceFolder(parentFolderPath).map( _.id )
-      resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, JIResourceTypes.jdbcDataSource, version = request.version + 1))
+      resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, DBResourceTypes.jdbcDataSource, version = request.version + 1))
       jdbcResourceId <- insertDataSourceResource( JIJdbcDatasource(request.driverClass.get, request.connectionUrl, request.username, request.password, request.timezone, resourceId) )
     } yield jdbcResourceId
   }

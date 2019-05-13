@@ -13,14 +13,14 @@ import com.typesafe.scalalogging.StrictLogging
 import scala.concurrent.{ExecutionContext, Future}
 
 class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(name, smqd, config) with Repository with StrictLogging
-  with ResourceFolderTableSupport
-  with ResourceTableSupport
-  with FileResourceTableSupport
-  with DataSourceSupport
-  with QueryTableSupport
-  with DataTypeTableSupport
-  with ListOfValuesTableSupport
-  with ReportUnitTableSupport {
+  with JIResourceFolderSupport
+  with JIResourceSupport
+  with JIFileResourceSupport
+  with JIDataSourceSupport
+  with JIQuerySupport
+  with JIDataTypeSupport
+  with JIListOfValuesSupport
+  with JIReportUnitSupport {
 
   protected implicit val dbContext: DBRepositoryContext =
     new DBRepositoryContext(this, smqd, config)
@@ -54,11 +54,11 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
     for {
       fl <- selectSubFoldersFromResourceFolder(path).map(_.map( asApiModel ))
       rl <- selectResourcesFromResourceFolder(path).map( _.map { r => r.resourceType match {
-        case JIResourceTypes.reportUnit =>
+        case DBResourceTypes.reportUnit =>
           ReportUnitResource(path + "/" + r.name, r.label)
-        case JIResourceTypes.jdbcDataSource =>
+        case DBResourceTypes.jdbcDataSource =>
           FileResource(path + "/" + r.name, r.label)
-        case JIResourceTypes.file =>
+        case DBResourceTypes.file =>
           FileResource(path + "/" + r.name, r.label)
         case _ =>
           FileResource(path + "/" + r.name, r.label)
@@ -81,7 +81,7 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
       case r: JIQueryModel => Right(asApiModel(r))
       case r: JIDataSourceModel => Right(asApiModel(r))
       case r: JIReportUnitModel => Right(asApiModel(r))
-      case other: JIDataModelKind =>
+      case other: DBModelKind =>
         logger.error(s"Unhandled db result $other")
         Left(new RuntimeException(s"Unimplemented resource $other: $path"))
 //      case ex: Throwable =>
@@ -101,10 +101,10 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
         logger.trace(s"getResource uri=$path, isReferenced=$isReferenced, isFolder=false")
         selectResource(path).flatMap { resource =>
           resource.resourceType match {
-            case JIResourceTypes.file =>              selectFileResource(resource.id).map( m => asApiModel(m).asInstanceOf[Resource] )
-            case JIResourceTypes.jdbcDataSource =>    selectDataSourceResource(resource.id).map(m => asApiModel(m).asInstanceOf[Resource] )
-            case JIResourceTypes.query =>             selectQueryResource(resource.id).map{ m => asApiModel(m).asInstanceOf[Resource] }
-            case JIResourceTypes.reportUnit =>        selectReportUnit(resource.id).map{ m => asApiModel(m).asInstanceOf[Resource] }
+            case DBResourceTypes.file =>              selectFileResource(resource.id).map(m => asApiModel(m).asInstanceOf[Resource] )
+            case DBResourceTypes.jdbcDataSource =>    selectDataSourceResource(resource.id).map(m => asApiModel(m).asInstanceOf[Resource] )
+            case DBResourceTypes.query =>             selectQueryResource(resource.id).map{ m => asApiModel(m).asInstanceOf[Resource] }
+            case DBResourceTypes.reportUnit =>        selectReportUnit(resource.id).map{ m => asApiModel(m).asInstanceOf[Resource] }
             // TODO:
 //             => ???
             case _ => ???

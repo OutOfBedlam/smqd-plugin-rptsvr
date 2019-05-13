@@ -43,15 +43,16 @@ final class JIReportUnitTable(tag: Tag) extends Table[JIReportUnit](tag, "JIRepo
 
   def idFk = foreignKey("jireportunit_id_fk", id, resources)(_.id)
   def queryFk = foreignKey("jireportunit_query_fk", query, queryResources)(_.id.?)
-  def mainReportFk = foreignKey("jireportunit_mainreport_fk", mainReport, reportUnits)(_.id.?)
+  def reportDataSourceFk = foreignKey("jireportunit_datasource_fk", reportDataSource, resources)(_.id.?)
+  def mainReportFk = foreignKey("jireportunit_mainreport_fk", mainReport, fileResources)(_.id.?)
 
   def * : ProvenShape[JIReportUnit] = (reportDataSource, query, mainReport, controlRenderer, reportRenderer, promptControls, controlsLayout, dataSnapshotId, id).mapTo[JIReportUnit]
 }
 
 
-final case class JIReportUnitModel(reportUnit: JIReportUnit, resource: JIResource, uri: String) extends JIDataModelKind
+final case class JIReportUnitModel(reportUnit: JIReportUnit, resource: JIResource, uri: String) extends DBModelKind
 
-trait ReportUnitTableSupport { mySelf: DBRepository =>
+trait JIReportUnitSupport { mySelf: DBRepository =>
 
   def asApiModel(model: JIReportUnitModel): ReportUnitResource = {
     val fr = ReportUnitResource(model.uri, model.resource.label)
@@ -108,13 +109,13 @@ trait ReportUnitTableSupport { mySelf: DBRepository =>
       dsId           <- mainDsId
       queryId        <- queryId
       // save report unit resource
-      resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, JIResourceTypes.reportUnit, version = request.version + 1) )
+      resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, DBResourceTypes.reportUnit, version = request.version + 1) )
       _              <- insertReportUnit( JIReportUnit(dsId, queryId, None, None, None, request.alwaysPromptControls, request.conrolsLayoutId, None, resourceId))
       // create _files folder
       filesFolderId  <- insertResourceFolder( JIResourceFolder(filesFolderPath, filesFolderName, filesFolderName, None, parentFolderId, hidden = true) )
       // save jrxml resource
-      jrxmlResourceId <- insertResource( JIResource(request.jrxml.get.label, filesFolderId, None, request.jrxml.get.label, request.jrxml.get.description, JIResourceTypes.file, version = request.jrxml.get.version + 1))
-      _               <- insertFileResource( JIFileResource(JIResourceTypes.reportUnit, jrxmlContent, None, jrxmlResourceId) )
+      jrxmlResourceId <- insertResource( JIResource(request.jrxml.get.label, filesFolderId, None, request.jrxml.get.label, request.jrxml.get.description, DBResourceTypes.file, version = request.jrxml.get.version + 1))
+      _               <- insertFileResource( JIFileResource(DBResourceTypes.reportUnit, jrxmlContent, None, jrxmlResourceId) )
       // save resource files
 //      _              <- request.resources.foreach { case (name, rsc) =>
 //          insertFileResource( JIFileResource())

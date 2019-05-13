@@ -46,11 +46,14 @@ final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, "JI
   def id = column[Long]("id", O.PrimaryKey)
 
   def idFk = foreignKey("jiinputcontrol_id_fk", id, resources)(_.id)
+  def dataTypeFk = foreignKey("jiinputcontrol_data_type_fk", dataType, dataTypes)(_.id.?)
+  def listOfValuesFk = foreignKey("jiinputcontrol_list_of_values_fk", listOfValues, DBSchema.listOfValues)(_.id.?)
+  def listQueryFk = foreignKey("jiinputcontrol_list_query_fk", listQuery, queryResources)(_.id.?)
 
   def * : ProvenShape[JIInputControl] = (controlType, dataType, listOfValues, listQuery, queryValueColumn, defaultValue, mandatory, readOnly, visible, id).mapTo[JIInputControl]
 }
 
-trait InputControlTableSupport { mySelf: DBRepository =>
+trait JIInputControlSupport { mySelf: DBRepository =>
 
   def insertInputControl(ctl: InputControlResource): Future[Long] = {
     val (folderPath, name) = splitPath(ctl.uri)
@@ -69,7 +72,7 @@ trait InputControlTableSupport { mySelf: DBRepository =>
       folder       <- selectResourceFolder(folderPath)
       dataTypeId   <- dtIdFuture
       lvId         <- lvIdFuture
-      resourceId   <- insertResource( JIResource(name, folder.id, None, ctl.label, ctl.description, JIResourceTypes.inputControl, version = ctl.version + 1))
+      resourceId   <- insertResource( JIResource(name, folder.id, None, ctl.label, ctl.description, DBResourceTypes.inputControl, version = ctl.version + 1))
       _            <- insertInputControl( JIInputControl(ctl.controlType, dataTypeId, lvId, None, None, None, ctl.mandatory, ctl.readOnly, ctl.visible) )
     } yield resourceId
   }

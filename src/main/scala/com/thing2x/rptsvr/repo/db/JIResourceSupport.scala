@@ -49,7 +49,7 @@ final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource
 }
 
 
-trait ResourceTableSupport { mySelf: DBRepository =>
+trait JIResourceSupport { mySelf: DBRepository =>
 
   def selectResource(path: String): Future[JIResource] = selectResource(Left(path))
 

@@ -31,7 +31,7 @@ final case class JIResourceFolder( uri: String,
                                    creationDate: Date = new Date(System.currentTimeMillis),
                                    updateDate: Date = new Date(System.currentTimeMillis),
                                    version: Int = -1,
-                                   id: Long = 0L) extends JIDataModelKind
+                                   id: Long = 0L) extends DBModelKind
 
 
 final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIResourceFolder") {
@@ -50,7 +50,7 @@ final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag,
 }
 
 
-trait ResourceFolderTableSupport { mySelf: DBRepository =>
+trait JIResourceFolderSupport { mySelf: DBRepository =>
 
   def asApiModel(model: JIResourceFolder): FolderResource = {
     val fr = FolderResource(model.uri, model.label)

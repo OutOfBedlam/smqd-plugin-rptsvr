@@ -23,6 +23,8 @@ object DBSchema {
 
   val dataTypes = TableQuery[JIDataTypeTable]
   val inputControls = TableQuery[JIInputControlTable]
+  val inputControlQueryColumns = TableQuery[JIInputControlQueryColumnTable]
+  val listOfValues = TableQuery[JIListOfValuesTable]
 
   val schema: Seq[H2Profile.DDL] = Seq(
     resourceFolders.schema,
@@ -31,7 +33,9 @@ object DBSchema {
     jdbcResources.schema,
     queryResources.schema,
     dataTypes.schema,
+    listOfValues.schema,
     inputControls.schema,
+    inputControlQueryColumns.schema,
     reportUnits.schema,
     reportUnitResources.schema,
     reportUnitInputControls.schema,
@@ -55,56 +59,3 @@ object DBSchema {
   }
 
 }
-
-//////////////////////////////////////////
-// JIDataModelKind
-//////////////////////////////////////////
-
-trait JIDataModelKind
-
-// create table JIObjectPermission (
-//        id number(19,0) not null,
-//        uri nvarchar2(1000) not null,
-//        recipientobjectclass nvarchar2(250),
-//        recipientobjectid number(19,0),
-//        permissionMask number(10,0) not null,
-//        primary key (id)
-//    );
-
-
-
-//     create table JITenant (
-//        id number(19,0) not null,
-//        tenantId nvarchar2(100) not null,
-//        tenantAlias nvarchar2(100) not null,
-//        parentId number(19,0),
-//        tenantName nvarchar2(100) not null,
-//        tenantDesc nvarchar2(250),
-//        tenantNote nvarchar2(250),
-//        tenantUri nvarchar2(250) not null,
-//        tenantFolderUri nvarchar2(250) not null,
-//        theme nvarchar2(250),
-//        primary key (id),
-//        unique (tenantId)
-//    );
-//
-//    create table JIUser (
-//        id number(19,0) not null,
-//        username nvarchar2(100) not null,
-//        tenantId number(19,0) not null,
-//        fullname nvarchar2(100) not null,
-//        emailAddress nvarchar2(100),
-//        password nvarchar2(250),
-//        externallyDefined number(1,0),
-//        enabled number(1,0),
-//        previousPasswordChangeTime date,
-//        primary key (id),
-//        unique (username, tenantId)
-//    );
-//
-//    create table JIUserRole (
-//        roleId number(19,0) not null,
-//        userId number(19,0) not null,
-//        primary key (userId, roleId)
-//    );
-

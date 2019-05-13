@@ -32,9 +32,9 @@ final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, "JI
   def * : ProvenShape[JIFileResource] = (fileType, data, reference, id).mapTo[JIFileResource]
 }
 
-final case class JIFileResourceModel(file: JIFileResource, resource: JIResource, uri: String) extends JIDataModelKind
+final case class JIFileResourceModel(file: JIFileResource, resource: JIResource, uri: String) extends DBModelKind
 
-trait FileResourceTableSupport { mySelf: DBRepository =>
+trait JIFileResourceSupport { mySelf: DBRepository =>
 
   def asApiModel(model: JIFileResourceModel): FileResource = {
     val fr = FileResource(model.uri, model.resource.label)
@@ -76,7 +76,7 @@ trait FileResourceTableSupport { mySelf: DBRepository =>
 
     for {
       parentFolderId <- selectResourceFolder(parentFolderPath).map( _.id )
-      resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, JIResourceTypes.file, version = request.version + 1) )
+      resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, DBResourceTypes.file, version = request.version + 1) )
       _              <- insertFileResource( JIFileResource(request.fileType, request.content.map{ ctnt => Base64.getDecoder.decode(ctnt) }, None, resourceId) )
     } yield resourceId
   }

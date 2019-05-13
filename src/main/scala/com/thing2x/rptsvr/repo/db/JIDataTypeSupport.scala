@@ -3,8 +3,8 @@ package com.thing2x.rptsvr.repo.db
 import java.util.Base64
 
 import com.thing2x.rptsvr.DataTypeResource
-import slick.jdbc.H2Profile.api._
 import com.thing2x.rptsvr.repo.db.DBSchema._
+import slick.jdbc.H2Profile.api._
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
@@ -45,7 +45,33 @@ final class JIDataTypeTable(tag: Tag) extends Table[JIDataType](tag, "JIDataType
   def * : ProvenShape[JIDataType] = (dataType, maxLength, decimals, regularExpr, minValue, maxValue, strictMin, strictMax, id).mapTo[JIDataType]
 }
 
-trait DataTypeTableSupport { mySelf: DBRepository =>
+final case class JIDataTypeModel(dt: JIDataType, resource: JIResource, uri: String) extends DBModelKind
+
+trait JIDataTypeSupport { mySelf: DBRepository =>
+
+  def selectDataType(path: String): Future[JIDataTypeModel] = selectDataType(Left(path))
+
+  def selectDataType(id: Long): Future[JIDataTypeModel] = selectDataType(Right(id))
+
+  private def selectDataType(pathOrId: Either[String, Long]): Future[JIDataTypeModel] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        val (folderPath, name) = splitPath(path)
+        for {
+          folder   <- resourceFolders.filter(_.uri === folderPath)
+          resource <- resources.filter(_.parentFolder === folder.id).filter(_.name === name)
+          dt       <- dataTypes.filter(_.id === resource.id)
+        } yield (dt, resource, folder)
+      case Right(id) =>
+        for {
+          dt       <- dataTypes.filter(_.id === id)
+          resource <- resources.filter(_.id === id)
+          folder   <- resource.parentFolderFk
+        } yield (dt, resource, folder)
+    }
+
+    dbContext.run(action.result.head).map { case (dt, resource, folder) => JIDataTypeModel(dt, resource, s"${folder.uri}/${resource.name}") }
+  }
 
   def insertDataType(dt: DataTypeResource): Future[Long] = {
     val (folderPath, name) = splitPath(dt.uri)
@@ -53,7 +79,7 @@ trait DataTypeTableSupport { mySelf: DBRepository =>
     val maxValue = dt.maxValue.map( d => Base64.getDecoder.decode(d) )
     for {
       folderId <- selectResourceFolder(folderPath).map( _.id )
-      resourceId <- insertResource( JIResource(name, folderId, None, dt.label, dt.description, JIResourceTypes.dataType, version = dt.version + 1))
+      resourceId <- insertResource( JIResource(name, folderId, None, dt.label, dt.description, DBResourceTypes.dataType, version = dt.version + 1))
       dtId       <- insertDataType( JIDataType(dt.typeId, dt.maxLength, dt.decimals, dt.regularExpr, minValue, maxValue, dt.strictMin, dt.strictMax, resourceId) )
     } yield dtId
   }
