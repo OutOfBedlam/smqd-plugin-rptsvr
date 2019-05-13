@@ -5,7 +5,7 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.thing2x.rptsvr.Repository.ResourceNotFoundException
 import com.thing2x.rptsvr.api.MimeTypes
-import com.thing2x.rptsvr.{FileContent, FileResource, FolderResource, JdbcDataSourceResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
+import com.thing2x.rptsvr.{DataSourceResource, FileContent, FileResource, FolderResource, JdbcDataSourceResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
@@ -18,8 +18,8 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
   with ResourceTableSupport
   with FileResourceTableSupport
   with DataSourceSupport
-  with JdbcDataSourceTableSupport
   with QueryTableSupport
+  with DataTypeTableSupport
   with ReportUnitTableSupport {
 
   protected implicit val dbContext: DBRepositoryContext =
@@ -52,7 +52,7 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
 
   override def listFolder(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]] = {
     for {
-      fl <- selectSubFoldersFromResourceFolder(path).map(_.map( _.asApiModel ))
+      fl <- selectSubFoldersFromResourceFolder(path).map(_.map( asApiModel ))
       rl <- selectResourcesFromResourceFolder(path).map( _.map { r => r.resourceType match {
         case JIResourceTypes.reportUnit =>
           ReportUnitResource(path + "/" + r.name, r.label)
@@ -71,12 +71,14 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
     val result = request match {
       case req: FolderResource =>          insertResourceFolder(req).flatMap( selectResourceFolder )
       case req: FileResource =>            insertFileResource(req).flatMap( selectFileResource )
-      case req: JdbcDataSourceResource =>  insertJdbcDataSourceResource(req).flatMap( selectJdbcDataSourceResource )
+      case req: DataSourceResource =>      insertDataSourceResource(req).flatMap( selectDataSourceResource )
       case req: QueryResource =>           insertQueryResource(req).flatMap( selectQueryResource )
     }
     result.map {
-      case r: JIResourceFolder => Right(r.asApiModel)
-      case r: JIResourceObject => Right(r.asApiModel)
+      case r: JIResourceFolder => Right(asApiModel(r))
+      case r: JIFileResourceModel => Right(asApiModel(r))
+      case r: JIQueryModel => Right(asApiModel(r))
+      case r: JIDataSourceModel => Right(asApiModel(r))
       case ex: Throwable =>
         logger.error(s"resource not found", ex)
         Left(new ResourceNotFoundException(path))
@@ -90,14 +92,16 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
     logger.debug(s"getResource uri=$path, isReferenced=$isReferenced")
     // find folder with path, if it is not a folder use path as resource
     selectResourceFolder(path).map { f =>
-      Right(f.asApiModel)
+      logger.trace(s"getResource uri=$path, isReferenced=$isReferenced, isFolder=true")
+      Right(asApiModel(f))
     }.recoverWith {
       case ex: Throwable =>
+        logger.trace(s"getResource uri=$path, isReferenced=$isReferenced, isFolder=false")
         selectResource(path).flatMap { resource =>
           resource.resourceType match {
-            case JIResourceTypes.file =>              selectFileResource(resource.id).map( _.asApiModel )
-            case JIResourceTypes.jdbcDataSource =>    selectJdbcDataSourceResource(resource.id).map( _.asApiModel )
-            case JIResourceTypes.query =>             selectQueryResource(resource.id).map( _.asApiModel )
+            case JIResourceTypes.file =>              selectFileResource(resource.id).map( m => asApiModel(m).asInstanceOf[Resource] )
+            case JIResourceTypes.jdbcDataSource =>    selectDataSourceResource(resource.id).map(m => asApiModel(m).asInstanceOf[Resource] )
+            case JIResourceTypes.query =>             selectQueryResource(resource.id).map{ m => asApiModel(m).asInstanceOf[Resource] }
             // TODO:
 //            case JIResourceTypes.reportUnit => ???
             case _ => ???
@@ -109,9 +113,8 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
 
   override def getContent(path: String): Future[Either[Throwable, FileContent]] = {
     selectFileResource(path).map { ro =>
-      val file = ro.obj.asInstanceOf[JIFileResource]
-      val src = file.data.map( d => Source.fromFuture(Future( ByteString(d) )) ).getOrElse(Source.empty)
-      Right(FileContent(path, src, MimeTypes.mimeTypeOf( file.fileType, ro.resource.name )))
+      val src = ro.file.data.map( d => Source.fromFuture(Future( ByteString(d) )) ).getOrElse(Source.empty)
+      Right(FileContent(path, src, MimeTypes.mimeTypeOf( ro.file.fileType, ro.resource.name )))
     }
   }
 

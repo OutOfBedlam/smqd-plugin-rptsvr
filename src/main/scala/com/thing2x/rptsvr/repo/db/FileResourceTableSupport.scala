@@ -2,19 +2,53 @@ package com.thing2x.rptsvr.repo.db
 
 import java.util.Base64
 
-import com.thing2x.rptsvr.FileResource
+import com.thing2x.rptsvr.{FileResource, RepositoryContext}
 import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.jdbc.H2Profile.api._
+import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
 
+//    create table JIFileResource (
+//        id number(19,0) not null,
+//        data blob,
+//        file_type nvarchar2(20),
+//        reference number(19,0),
+//        primary key (id)
+//    );
+final case class JIFileResource( fileType: String,
+                                 data: Option[Array[Byte]],
+                                 reference: Option[Long],
+                                 id: Long = 0L)
+
+final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, "JIFileResource") {
+  def fileType    = column[String]("file_type")
+  def data   = column[Option[Array[Byte]]]("data", O.SqlType("BLOB"))
+  def reference    = column[Option[Long]]("reference")
+  def id           = column[Long]("id", O.PrimaryKey)
+
+  def idFk = foreignKey("fileresource_id_fk", id, resources)(_.id)
+
+  def * : ProvenShape[JIFileResource] = (fileType, data, reference, id).mapTo[JIFileResource]
+}
+
+final case class JIFileResourceModel(file: JIFileResource, resource: JIResource, uri: String) extends JIDataModelKind
+
 trait FileResourceTableSupport { mySelf: DBRepository =>
 
-  def selectFileResource(path: String): Future[JIResourceObject] = selectFileResource(Left(path))
+  def asApiModel(model: JIFileResourceModel): FileResource = {
+    val fr = FileResource(model.uri, model.resource.label)
+    fr.version = model.resource.version
+    fr.permissionMask = 1
+    fr.fileType = model.file.fileType
+    fr
+  }
 
-  def selectFileResource(id: Long): Future[JIResourceObject] = selectFileResource(Right(id))
+  def selectFileResource(path: String): Future[JIFileResourceModel] = selectFileResource(Left(path))
 
-  private def selectFileResource(pathOrId: Either[String, Long]): Future[JIResourceObject] = {
+  def selectFileResource(id: Long): Future[JIFileResourceModel] = selectFileResource(Right(id))
+
+  private def selectFileResource(pathOrId: Either[String, Long]): Future[JIFileResourceModel] = {
     val action = pathOrId match {
       case Left(path) =>
         val (folderPath, name) = splitPath(path)
@@ -32,7 +66,9 @@ trait FileResourceTableSupport { mySelf: DBRepository =>
         } yield (folder, resource, fileResource)
     }
 
-    dbContext.run(action.result.head).map( JIResourceObject(_) )
+    dbContext.run(action.result.head).map{ case(folder, resource, file) =>
+      JIFileResourceModel(file, resource, s"${folder.uri}/${resource.name}")
+    }
   }
 
   def insertFileResource(request: FileResource): Future[Long] = {

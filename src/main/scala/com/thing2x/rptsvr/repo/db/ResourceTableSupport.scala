@@ -1,8 +1,53 @@
 package com.thing2x.rptsvr.repo.db
+import java.sql.Date
+
 import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.Future
+
+//     create table JIResource (
+//        id number(19,0) not null,
+//        version number(10,0) not null,
+//        name nvarchar2(200) not null,
+//        parent_folder number(19,0) not null,
+//        childrenFolder number(19,0),
+//        label nvarchar2(200) not null,
+//        description nvarchar2(250),
+//        resourceType nvarchar2(255) not null,
+//        creation_date date not null,
+//        update_date date not null,
+//        primary key (id),
+//        unique (name, parent_folder)
+//    );
+final case class JIResource( name: String,
+                             parentFolder: Long,
+                             childrenFolder: Option[Long],
+                             label: String,
+                             descriptoin: Option[String],
+                             resourceType: String,
+                             creationDate: Date = new Date(System.currentTimeMillis),
+                             updateDate: Date = new Date(System.currentTimeMillis),
+                             version: Int = -1,
+                             id: Long = 0L)
+
+final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource") {
+  def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+  def version = column[Int]("version")
+  def name = column[String]("name")
+  def parentFolder = column[Long]("parent_folder")
+  def childrenFolder = column[Option[Long]]("childrenFolder")
+  def label = column[String]("label")
+  def description = column[Option[String]]("description")
+  def resourceType = column[String]("resourceType")
+  def creationDate = column[Date]("creation_date")
+  def updateDate = column[Date]("update_date")
+
+  def parentFolderFk = foreignKey("resource_parent_folder_fk", parentFolder, resourceFolders)(_.id)
+
+  def * = (name, parentFolder, childrenFolder, label, description, resourceType, creationDate, updateDate, version, id).mapTo[JIResource]
+}
+
 
 trait ResourceTableSupport { mySelf: DBRepository =>
 
