@@ -3,9 +3,10 @@ import java.sql.Date
 
 import com.thing2x.rptsvr.Resource
 import com.thing2x.rptsvr.repo.db.DBSchema._
-import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.Future
+
+import DBSchema.profile.api._
 
 //     create table JIResource (
 //        id number(19,0) not null,

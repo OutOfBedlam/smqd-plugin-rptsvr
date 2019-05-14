@@ -7,7 +7,6 @@ import akka.stream.Materializer
 import com.thing2x.rptsvr.{Repository, RepositoryContext}
 import com.thing2x.smqd.Smqd
 import com.typesafe.config.Config
-import slick.jdbc.H2Profile.api._
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
@@ -22,6 +21,8 @@ class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Co
   val materializer: Materializer = smqd.Implicit.materializer
 
   private val deferedBlock = new ListBuffer[() => Unit]
+
+  import DBSchema.profile.api._
 
   private var _database: Database = _
   def database: Database = _database

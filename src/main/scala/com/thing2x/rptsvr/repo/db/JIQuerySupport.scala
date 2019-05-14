@@ -1,10 +1,11 @@
 package com.thing2x.rptsvr.repo.db
 import com.thing2x.rptsvr.QueryResource
 import com.thing2x.rptsvr.repo.db.DBSchema._
-import slick.jdbc.H2Profile.api._
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
+
+import DBSchema.profile.api._
 
 // create table JIQuery (
 //        id number(19,0) not null,

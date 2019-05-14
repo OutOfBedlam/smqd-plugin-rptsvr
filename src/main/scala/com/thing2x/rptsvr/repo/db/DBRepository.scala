@@ -1,12 +1,12 @@
 package com.thing2x.rptsvr.repo.db
 
-import akka.stream.Materializer
 import com.thing2x.rptsvr.Repository.ResourceNotFoundException
 import com.thing2x.rptsvr.{DataSourceResource, FileContent, FileResource, FolderResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import slick.jdbc.JdbcProfile
 
 import scala.concurrent.{ExecutionContext, Future}
 

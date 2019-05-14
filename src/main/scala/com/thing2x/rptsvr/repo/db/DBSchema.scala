@@ -1,13 +1,17 @@
 package com.thing2x.rptsvr.repo.db
 
-import slick.jdbc.H2Profile
-import slick.jdbc.H2Profile.api._
+import slick.jdbc.JdbcProfile
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
 object DBSchema {
+
+  val profile: JdbcProfile = slick.jdbc.H2Profile
+
+  import profile.api._
+  
   val resources = TableQuery[JIResourceTable]
 
   val resourceFolders = TableQuery[JIResourceFolderTable]
@@ -26,7 +30,7 @@ object DBSchema {
   val inputControlQueryColumns = TableQuery[JIInputControlQueryColumnTable]
   val listOfValues = TableQuery[JIListOfValuesTable]
 
-  val schema: Seq[H2Profile.DDL] = Seq(
+  private val schema = Seq(
     resourceFolders.schema,
     resources.schema,
     fileResources.schema,

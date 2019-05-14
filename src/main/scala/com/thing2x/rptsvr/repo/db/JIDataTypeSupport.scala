@@ -4,10 +4,11 @@ import java.util.Base64
 
 import com.thing2x.rptsvr.DataTypeResource
 import com.thing2x.rptsvr.repo.db.DBSchema._
-import slick.jdbc.H2Profile.api._
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
+
+import DBSchema.profile.api._
 
 //    create table JIDataType (
 //        id number(19,0) not null,

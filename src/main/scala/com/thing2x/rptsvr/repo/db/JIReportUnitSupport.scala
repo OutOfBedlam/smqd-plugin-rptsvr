@@ -3,10 +3,11 @@ import java.util.Base64
 
 import com.thing2x.rptsvr.ReportUnitResource
 import com.thing2x.rptsvr.repo.db.DBSchema._
-import slick.jdbc.H2Profile.api._
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
+
+import DBSchema.profile.api._
 
 // create table JIReportUnit (
 //        id number(19,0) not null,
@@ -31,6 +32,8 @@ final case class JIReportUnit( reportDataSource: Option[Long],
                                id: Long = 0L)
 
 final class JIReportUnitTable(tag: Tag) extends Table[JIReportUnit](tag, "JIReportUnit") {
+
+
   def reportDataSource = column[Option[Long]]("reportDataSource")
   def query = column[Option[Long]]("query")
   def mainReport = column[Option[Long]]("mainReport")
@@ -57,36 +60,43 @@ trait JIReportUnitSupport { mySelf: DBRepository =>
   def selectReportUnitModel(id: Long): Future[ReportUnitResource] = selectReportUnitModel(Right(id))
 
   private def selectReportUnitModel(pathOrId: Either[String, Long]): Future[ReportUnitResource] = {
-    val action = pathOrId match {
+    val futureReportUnit = pathOrId match {
       case Left(path) =>
         val (folderPath, name) = splitPath(path)
         for {
-          folder     <- selectResourceFolder(folderPath)
-          resource   <- selectResource(path)
+          folder <- selectResourceFolder(folderPath)
+          resource <- selectResource(path)
           reportUnit <- selectReportUnit(resource.id)
-          reportUnitInputControls <- selectReportUnitInputControlModel(resource.id)
-          reportUnitResources     <- selectReportUnitResourceModel(resource.id)
-          jrxml                   <- selectFileResourceModel(reportUnit.mainReport.get)
-          ds            <- selectDataSourceModel(reportUnit.reportDataSource.get)
-        } yield (reportUnit, ds, resource, jrxml, reportUnitInputControls, reportUnitResources, folder)
+        } yield(reportUnit, resource, folder)
       case Right(id) =>
         for {
-          reportUnit    <- selectReportUnit(id)
-          resource      <- selectResource(id)
-          folder        <- selectResourceFolder(resource.parentFolder)
-          reportUnitInputControls <- selectReportUnitInputControlModel(resource.id)
-          reportUnitResources     <- selectReportUnitResourceModel(resource.id)
-          jrxml                   <- selectFileResourceModel(reportUnit.mainReport.get)
-          ds            <- selectDataSourceModel(reportUnit.reportDataSource.get)
-        } yield (reportUnit, ds, resource, jrxml, reportUnitInputControls, reportUnitResources, folder)
+          reportUnit              <- selectReportUnit(id)
+          resource                <- selectResource(id)
+          folder                  <- selectResourceFolder(resource.parentFolder)
+        } yield(reportUnit, resource, folder)
     }
-    action.map { case (reportUnit, ds, resource, jrxml, ruic, rurs, folder) =>
-      val fr = ReportUnitResource(s"${folder.uri}/${resource.name}", resource.label)
-      fr.resources = rurs.map(r => (r.label, r)).toMap
-      fr.inputControls = ruic
-      fr.jrxml = Some(jrxml)
-      fr.dataSource = Some(ds)
-      fr
+
+    futureReportUnit.flatMap { case (reportUnit, resource, folder) =>
+      val x= for {
+        reportUnitInputControls <- selectReportUnitInputControlModel(resource.id)
+        reportUnitResources     <- selectReportUnitResourceModel(resource.id)
+        jrxml                   <- reportUnit.mainReport match {
+          case Some(mainReportId) => selectFileResourceModel(mainReportId).map( Some(_) )
+          case None => Future( None )
+        }
+        ds                      <- reportUnit.reportDataSource match {
+          case Some(dsId) => selectDataSourceModel(dsId).map( Some(_) )
+          case None => Future( None )
+        }
+      } yield (jrxml, ds, reportUnitResources, reportUnitInputControls)
+      x.map{ case (jrxml, ds, rurs, ruic) =>
+        val fr = ReportUnitResource(s"${folder.uri}/${resource.name}", resource.label)
+        fr.resources = rurs.map(r => (r.label, r)).toMap
+        fr.inputControls = ruic
+        fr.jrxml = jrxml
+        fr.dataSource = ds
+        fr
+      }
     }
   }
 
