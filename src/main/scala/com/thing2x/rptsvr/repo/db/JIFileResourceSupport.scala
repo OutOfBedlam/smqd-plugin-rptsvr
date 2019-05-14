@@ -126,7 +126,7 @@ trait JIFileResourceSupport { mySelf: DBRepository =>
     val (parentFolderPath, name) = splitPath(request.uri)
 
     for {
-      parentFolderId <- selectResourceFolder(parentFolderPath).map( _.id )
+      parentFolderId <- insertResourceFolderIfNotExists(parentFolderPath)
       resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, DBResourceTypes.file, version = request.version + 1) )
       _              <- insertFileResource( JIFileResource(request.fileType, request.content.map{ ctnt => Base64.getDecoder.decode(ctnt) }, None, resourceId) )
     } yield resourceId
@@ -134,6 +134,11 @@ trait JIFileResourceSupport { mySelf: DBRepository =>
 
   def insertFileResource(file: JIFileResource): Future[Long] = {
     val action = fileResources += file
+    dbContext.run(action).map( _ => file.id )
+  }
+
+  def insertOrUpdateFileResource(file: JIFileResource): Future[Long] = {
+    val action = fileResources.insertOrUpdate(file)
     dbContext.run(action).map( _ => file.id )
   }
 }

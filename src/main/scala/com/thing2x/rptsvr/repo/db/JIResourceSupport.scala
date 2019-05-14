@@ -101,4 +101,9 @@ trait JIResourceSupport { mySelf: DBRepository =>
     val act = resources returning resources.map(_.id) += resource
     dbContext.run(act)
   }
+
+  def insertOrUpdateResource(resource: JIResource): Future[Long] = {
+    val act = resources.insertOrUpdate(resource)
+    dbContext.run(act).map(_ => resource.id)
+  }
 }

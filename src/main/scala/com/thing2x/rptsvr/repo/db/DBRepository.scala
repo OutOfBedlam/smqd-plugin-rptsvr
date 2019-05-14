@@ -87,7 +87,13 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
         Future( Right(folder) )
       case None =>
         logger.trace(s"getResource uri=$path, isReferenced=$isReferenced, isFolder=false")
-        selectResourceModel(path).map( Right(_) )
+        selectResourceModel(path).map( Right(_) ).recover{
+          case _: NoSuchElementException =>
+            Left( new ResourceNotFoundException(path) )
+          case ex =>
+            logger.debug(s"resource not found: $path", ex)
+            Left( ex )
+        }
     }
   }
 
