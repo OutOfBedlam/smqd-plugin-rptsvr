@@ -1,9 +1,7 @@
 package com.thing2x.rptsvr.repo.db
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
-import com.thing2x.rptsvr.api.MimeTypes
+import com.thing2x.rptsvr.Repository.ResourceNotFoundException
 import com.thing2x.rptsvr.{DataSourceResource, FileContent, FileResource, FolderResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
@@ -17,10 +15,13 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
   with JIResourceSupport
   with JIFileResourceSupport
   with JIDataSourceSupport
+  with JIInputControlSupport
   with JIQuerySupport
   with JIDataTypeSupport
   with JIListOfValuesSupport
-  with JIReportUnitSupport {
+  with JIReportUnitSupport
+  with JIReportUnitInputControlSupport
+  with JIReportUnitResourceSupport {
 
   protected implicit val dbContext: DBRepositoryContext =
     new DBRepositoryContext(this, smqd, config)
@@ -28,7 +29,6 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
   override val context: RepositoryContext = dbContext
 
   protected implicit val ec: ExecutionContext = context.executionContext
-  protected implicit val materializer: Materializer = dbContext.materializer
 
   override def start(): Unit = {
     dbContext.open() {
@@ -52,7 +52,7 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
 
   override def listFolder(path: String, recursive: Boolean, sortBy: String, limit: Int): Future[ListResult[Resource]] = {
     for {
-      fl <- selectSubFoldersFromResourceFolder(path).map(_.map( asApiModel ))
+      fl <- selectSubFolderModelFromResourceFolder(path)
       rl <- selectResourcesFromResourceFolder(path).map( _.map { r => r.resourceType match {
         case DBResourceTypes.reportUnit =>
           ReportUnitResource(path + "/" + r.name, r.label)
@@ -68,58 +68,31 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
 
   override def setResource(path: String, request: Resource, createFolders: Boolean, overwrite: Boolean): Future[Result[Resource]] = {
     logger.debug(s"setResource uri=$path, $request, resourceType=${request.resourceType}")
-    val result = request match {
-      case req: FolderResource =>          insertResourceFolder(req).flatMap( selectResourceFolder )
-      case req: FileResource =>            insertFileResource(req).flatMap( selectFileResource )
-      case req: DataSourceResource =>      insertDataSourceResource(req).flatMap( selectDataSourceResource )
-      case req: QueryResource =>           insertQueryResource(req).flatMap( selectQueryResource )
-      case req: ReportUnitResource =>      insertReportUnit(req).flatMap( selectReportUnit )
-    }
-    result.map {
-      case r: JIResourceFolder => Right(asApiModel(r))
-      case r: JIFileResourceModel => Right(asApiModel(r))
-      case r: JIQueryModel => Right(asApiModel(r))
-      case r: JIDataSourceModel => Right(asApiModel(r))
-      case r: JIReportUnitModel => Right(asApiModel(r))
-      case other: DBModelKind =>
-        logger.error(s"Unhandled db result $other")
-        Left(new RuntimeException(s"Unimplemented resource $other: $path"))
-//      case ex: Throwable =>
-//        logger.error(s"resource not found", ex)
-//        Left(new ResourceNotFoundException(path))
+    request match {
+      case req: FolderResource =>          insertResourceFolder(req).flatMap( selectResourceFolderModel ).map(Right(_))
+      case req: FileResource =>            insertFileResource(req).flatMap( selectFileResourceModel ).map(Right(_))
+      case req: DataSourceResource =>      insertDataSource(req).flatMap( selectDataSourceModel ).map(Right(_))
+      case req: QueryResource =>           insertQueryResource(req).flatMap( selectQueryResourceModel ).map(Right(_))
+      case req: ReportUnitResource =>      insertReportUnit(req).flatMap( selectReportUnitModel ).map(Right(_))
+      case _ => Future( Left(new ResourceNotFoundException(path)) )
     }
   }
 
   override def getResource(path: String, isReferenced: Boolean): Future[Result[Resource]] = {
     logger.debug(s"getResource uri=$path, isReferenced=$isReferenced")
     // find folder with path, if it is not a folder use path as resource
-    selectResourceFolder(path).map { f =>
-      logger.trace(s"getResource uri=$path, isReferenced=$isReferenced, isFolder=true")
-      Right(asApiModel(f))
-    }.recoverWith {
-      case ex: Throwable =>
+    selectResourceFolderModelIfExists(path).flatMap {
+      case Some(folder) =>
+        logger.trace(s"getResource uri=$path, isReferenced=$isReferenced, isFolder=true")
+        Future( Right(folder) )
+      case None =>
         logger.trace(s"getResource uri=$path, isReferenced=$isReferenced, isFolder=false")
-        selectResource(path).flatMap { resource =>
-          resource.resourceType match {
-            case DBResourceTypes.file =>              selectFileResource(resource.id).map(m => asApiModel(m).asInstanceOf[Resource] )
-            case DBResourceTypes.jdbcDataSource =>    selectDataSourceResource(resource.id).map(m => asApiModel(m).asInstanceOf[Resource] )
-            case DBResourceTypes.query =>             selectQueryResource(resource.id).map{ m => asApiModel(m).asInstanceOf[Resource] }
-            case DBResourceTypes.reportUnit =>        selectReportUnit(resource.id).map{ m => asApiModel(m).asInstanceOf[Resource] }
-            // TODO:
-//             => ???
-            case _ => ???
-          }
-
-        }
+        selectResourceModel(path).map( Right(_) )
     }
   }
 
-  override def getContent(path: String): Future[Either[Throwable, FileContent]] = {
-    selectFileResource(path).map { ro =>
-      val src = ro.file.data.map( d => Source.fromFuture(Future( ByteString(d) )) ).getOrElse(Source.empty)
-      Right(FileContent(path, src, MimeTypes.mimeTypeOf( ro.file.fileType, ro.resource.name )))
-    }
-  }
+  override def getContent(path: String): Future[Either[Throwable, FileContent]] =
+    selectFileContentModel(path).map( Right(_) )
 
   override def deleteResource(path: String): Future[Boolean] = ???
 }

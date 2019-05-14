@@ -1,5 +1,6 @@
 package com.thing2x.rptsvr.repo.db
 
+import com.thing2x.rptsvr.InputControlResource
 import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.jdbc.H2Profile.api._
 import slick.lifted.ProvenShape
@@ -22,30 +23,64 @@ final class JIInputControlQueryColumnTable(tag: Tag) extends Table[JIInputContro
   def columnIndex = column[Int]("column_index")
 
   def pk = primaryKey("jiinputcontrolquerycolumn_pk", (inputControlId, columnIndex))
+  def inputControlIdFk = foreignKey("jiinputcontrolquerycolumn_input_control_id_fk", inputControlId, inputControls)(_.id)
 
   def * : ProvenShape[JIInputControlQueryColumn] = (inputControlId, queryColumn, columnIndex).mapTo[JIInputControlQueryColumn]
 }
 
-final case class JIInputControlQueryColumnModel(icqc: JIInputControlQueryColumn, resource: JIResource, uri: String)
-
 trait JIInputControlQueryColumnSupport { mySelf: DBRepository =>
 
-  def selectInputControlQueryColumn(path: String): Future[JIInputControlQueryColumnModel] = selectInputControlQueryColumn(Left(path))
+  def selectInputControlQueryColumnModel(path: String): Future[Seq[InputControlResource]] = selectInputControlQueryColumnModel(Left(path))
 
-  def selectInputControlQueryColumn(id: Long): Future[JIInputControlQueryColumnModel] = selectInputControlQueryColumn(Right(id))
+  def selectInputControlQueryColumnModel(id: Long): Future[Seq[InputControlResource]] = selectInputControlQueryColumnModel(Right(id))
 
-  private def selectInputControlQueryColumn(pathOrId: Either[String, Long]): Future[JIInputControlQueryColumnModel] = {
+  private def selectInputControlQueryColumnModel(pathOrId: Either[String, Long]): Future[Seq[InputControlResource]] = {
     val action = pathOrId match {
       case Left(path) =>
         val (folderPath, name) = splitPath(path)
         for {
-          folder <- resourceFolders.filter(_.uri === folderPath)
+          folder   <- resourceFolders.filter(_.uri === folderPath)
           resource <- resources.filter(_.parentFolder === folder.id).filter(_.name === name)
-          icqc     <- inputControlQueryColumns.filter(_.inputControlId === resource.id)
-        } yield (icqc, resource, folder)
+          ic       <- inputControls.filter(_.id === resource.id)
+          icqc     <- inputControlQueryColumns.filter(_.inputControlId === ic.id).sortBy(_.columnIndex)
+        } yield (icqc, ic, resource, folder)
       case Right(id) =>
+        for {
+          icqc     <- inputControlQueryColumns.filter(_.inputControlId === id).sortBy(_.columnIndex)
+          ic       <- icqc.inputControlIdFk
+          resource <- ic.idFk
+          folder   <- resource.parentFolderFk
+        } yield (icqc, ic, resource, folder)
     }
-    ???
+    dbContext.run(action.result).map{ //x => case (icqc, ic, resource, folder) =>
+      ???
+    }
   }
 
+  def selectInputControlQueryColumn(path: String): Future[Seq[JIInputControlQueryColumn]] = selectInputControlQueryColumn(Left(path))
+
+  def selectInputControlQueryColumn(id: Long): Future[Seq[JIInputControlQueryColumn]] = selectInputControlQueryColumn(Right(id))
+
+  private def selectInputControlQueryColumn(pathOrId: Either[String, Long]): Future[Seq[JIInputControlQueryColumn]] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        val (folderPath, name) = splitPath(path)
+        for {
+          folder   <- resourceFolders.filter(_.uri === folderPath)
+          resource <- resources.filter(_.parentFolder === folder.id).filter(_.name === name)
+          ic       <- inputControls.filter(_.id === resource.id)
+          icqc     <- inputControlQueryColumns.filter(_.inputControlId === ic.id).sortBy(_.columnIndex)
+        } yield icqc
+      case Right(id) =>
+        for {
+          icqc     <- inputControlQueryColumns.filter(_.inputControlId === id).sortBy(_.columnIndex)
+        } yield icqc
+    }
+    dbContext.run(action.result)
+  }
+
+  def insertInputControlQueryColumn(icqcList: Seq[JIInputControlQueryColumn]): Future[Option[Int]] = {
+    val action = inputControlQueryColumns ++= icqcList
+    dbContext.run(action)
+  }
 }

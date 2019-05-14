@@ -19,6 +19,9 @@ import io.circe.{ACursor, DecodingFailure, Json}
 
 import scala.collection.mutable
 
+object InputControlResource {
+  def apply(uri: String, label: String)(implicit context: RepositoryContext) = new InputControlResource(uri, label)
+}
 ///////////////////////////////////////////////////////////////////////////////
 // type   Type of Input Control                         usedFields
 // ----------------------------------------------------------------------------

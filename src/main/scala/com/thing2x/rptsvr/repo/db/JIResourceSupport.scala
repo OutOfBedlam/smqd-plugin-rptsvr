@@ -1,6 +1,7 @@
 package com.thing2x.rptsvr.repo.db
 import java.sql.Date
 
+import com.thing2x.rptsvr.Resource
 import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.jdbc.H2Profile.api._
 
@@ -50,6 +51,32 @@ final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource
 
 
 trait JIResourceSupport { mySelf: DBRepository =>
+
+  def selectResourceModel(path: String): Future[Resource] = selectResourceModel(Left(path))
+
+  def selectResourceModel(id: Long): Future[Resource] = selectResourceModel(Right(id))
+
+  private def selectResourceModel(pathOrId: Either[String, Long]): Future[Resource] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        val (folderPath, name) = splitPath(path)
+        for {
+          folderId <- resourceFolders.filter(_.uri === folderPath).map(_.id)
+          resource <- resources.filter(_.parentFolder === folderId).filter(_.name === name)
+        } yield resource
+      case Right(id)  =>
+        resources.filter(_.id === id)
+    }
+    dbContext.run(action.result.head).flatMap { r =>
+      r.resourceType match {
+        case DBResourceTypes.file =>              selectFileResourceModel(r.id)
+        case DBResourceTypes.jdbcDataSource =>    selectDataSourceModel(r.id)
+        case DBResourceTypes.query =>             selectQueryResourceModel(r.id)
+        case DBResourceTypes.reportUnit =>        selectReportUnitModel(r.id)
+        // TODO:
+      }
+    }
+  }
 
   def selectResource(path: String): Future[JIResource] = selectResource(Left(path))
 

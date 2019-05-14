@@ -38,33 +38,13 @@ final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag,
 }
 
 
-final case class JIDataSourceModel(ds: AnyRef, resource: JIResource, uri: String) extends DBModelKind
-
 trait JIDataSourceSupport { myself: DBRepository =>
 
-  def asApiModel(model: JIDataSourceModel): DataSourceResource = {
-    model.ds match {
-      case jdbc: JIJdbcDatasource =>
-        val fr = JdbcDataSourceResource(model.uri, model.resource.label)
-        fr.version = model.resource.version
-        fr.permissionMask = 1
-        fr.timezone = jdbc.timezone
-        fr.driverClass = Some(jdbc.driver)
-        fr.username = jdbc.username
-        fr.password = jdbc.password
-        fr.connectionUrl = jdbc.connectionUrl
-        fr
-      case x =>
-        logger.error(s"Unimplemented error: $x")
-        ???
-    }
-  }
+  def selectDataSourceModel(path: String): Future[DataSourceResource] = selectDataSourceModel(Left(path))
 
-  def selectDataSourceResource(path: String): Future[JIDataSourceModel] = selectDataSourceResource(Left(path))
+  def selectDataSourceModel(id: Long): Future[DataSourceResource] = selectDataSourceModel(Right(id))
 
-  def selectDataSourceResource(id: Long): Future[JIDataSourceModel] = selectDataSourceResource(Right(id))
-
-  private def selectDataSourceResource(pathOrId: Either[String, Long]): Future[JIDataSourceModel] = {
+  private def selectDataSourceModel(pathOrId: Either[String, Long]): Future[DataSourceResource] = {
     val action = pathOrId match {
       case Left(path) =>
         val (folderPath, name) = splitPath(path)
@@ -85,28 +65,69 @@ trait JIDataSourceSupport { myself: DBRepository =>
           jdbcResources.filter(_.id === resource.id)
         case DBResourceTypes.jndiJdbcDataSource => ???
       }
-      dbContext.run(subQuery.result.head).map{ ds =>
-        JIDataSourceModel(ds, resource, s"${folder.uri}/${resource.name}")
+      dbContext.run(subQuery.result.head).map {
+        case jdbc: JIJdbcDatasource =>
+          val fr = JdbcDataSourceResource(s"${folder.uri}/${resource.name}", resource.label)
+          fr.version = resource.version
+          fr.permissionMask = 1
+          fr.timezone = jdbc.timezone
+          fr.driverClass = Some(jdbc.driver)
+          fr.username = jdbc.username
+          fr.password = jdbc.password
+          fr.connectionUrl = jdbc.connectionUrl
+          fr
+        case x =>
+          logger.error(s"Unimplemented error: $x")
+          ???
       }
     }
   }
 
-  def insertDataSourceResource(request: DataSourceResource): Future[Long] = {
-    request match {
-      case req: JdbcDataSourceResource => insertDataSourceResource(req)
+  def selectJdbcDataSource(path: String): Future[JIJdbcDatasource] = selectJdbcDataSource(Left(path))
+
+  def selectJdbcDataSource(id: Long): Future[JIJdbcDatasource] = selectJdbcDataSource(Right(id))
+
+  private def selectJdbcDataSource(pathOrId: Either[String, Long]): Future[JIJdbcDatasource] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        val (folderPath, name) = splitPath(path)
+        for {
+          folder   <- resourceFolders.filter(_.uri === folderPath)
+          resource <- resources.filter(_.parentFolder === folder.id).filter(_.name === name)
+        } yield (resource, folder)
+      case Right(id) =>
+        for {
+          resource <- resources.filter(_.id === id)
+          folder   <- resource.parentFolderFk
+        } yield (resource, folder)
+    }
+
+    dbContext.run(action.result.head).flatMap{ case (resource, folder) =>
+      val subQuery = resource.resourceType match {
+        case DBResourceTypes.jdbcDataSource =>
+          jdbcResources.filter(_.id === resource.id)
+        case DBResourceTypes.jndiJdbcDataSource => ???
+      }
+      dbContext.run(subQuery.result.head)
     }
   }
 
-  def insertDataSourceResource(request: JdbcDataSourceResource): Future[Long] = {
+  def insertDataSource(request: DataSourceResource): Future[Long] = {
+    request match {
+      case req: JdbcDataSourceResource => insertDataSource(req)
+    }
+  }
+
+  def insertDataSource(request: JdbcDataSourceResource): Future[Long] = {
     val (parentFolderPath, name) = splitPath(request.uri)
     for {
       parentFolderId <- selectResourceFolder(parentFolderPath).map( _.id )
       resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, DBResourceTypes.jdbcDataSource, version = request.version + 1))
-      jdbcResourceId <- insertDataSourceResource( JIJdbcDatasource(request.driverClass.get, request.connectionUrl, request.username, request.password, request.timezone, resourceId) )
+      jdbcResourceId <- insertDataSource( JIJdbcDatasource(request.driverClass.get, request.connectionUrl, request.username, request.password, request.timezone, resourceId) )
     } yield jdbcResourceId
   }
 
-  def insertDataSourceResource(jdbc: JIJdbcDatasource): Future[Long] = {
+  def insertDataSource(jdbc: JIJdbcDatasource): Future[Long] = {
     val action = jdbcResources += jdbc
     dbContext.run(action).map( _ => jdbc.id )
   }

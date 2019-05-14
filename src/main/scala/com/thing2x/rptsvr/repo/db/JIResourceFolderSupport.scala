@@ -31,7 +31,7 @@ final case class JIResourceFolder( uri: String,
                                    creationDate: Date = new Date(System.currentTimeMillis),
                                    updateDate: Date = new Date(System.currentTimeMillis),
                                    version: Int = -1,
-                                   id: Long = 0L) extends DBModelKind
+                                   id: Long = 0L)
 
 
 final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIResourceFolder") {
@@ -52,16 +52,28 @@ final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag,
 
 trait JIResourceFolderSupport { mySelf: DBRepository =>
 
-  def asApiModel(model: JIResourceFolder): FolderResource = {
-    val fr = FolderResource(model.uri, model.label)
-    fr.version = model.version
-    fr.permissionMask = 1
-    fr
+  def selectResourceFolderModel(path: String): Future[FolderResource] = selectResourceFolderModel(Left(path))
+
+  def selectResourceFolderModel(id: Long): Future[FolderResource] = selectResourceFolderModel(Right(id))
+
+  private def selectResourceFolderModel(pathOrId: Either[String, Long]): Future[FolderResource] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        resourceFolders.filter(_.uri === path)
+      case Right(id) =>
+        resourceFolders.filter(_.id === id)
+    }
+    dbContext.run(action.result.head).map{ r =>
+      val fr = FolderResource(r.uri, r.label)
+      fr.version = r.version
+      fr.permissionMask = 1
+      fr
+    }
   }
 
   def selectResourceFolder(path: String): Future[JIResourceFolder] = selectResourceFolder(Left(path))
 
-  def selectResourceFolder(id: Long): Future[JIResourceFolder] =  selectResourceFolder(Right(id))
+  def selectResourceFolder(id: Long): Future[JIResourceFolder] = selectResourceFolder(Right(id))
 
   private def selectResourceFolder(pathOrId: Either[String, Long]): Future[JIResourceFolder] = {
     val action = pathOrId match {
@@ -71,13 +83,18 @@ trait JIResourceFolderSupport { mySelf: DBRepository =>
     dbContext.run(action.result.head)
   }
 
-  def selectSubFoldersFromResourceFolder(path: String): Future[Seq[JIResourceFolder]] = {
+  def selectSubFolderModelFromResourceFolder(path: String): Future[Seq[FolderResource]] = {
     val action = for {
       folderId <- resourceFolders.filter(_.uri === path).map(_.id)
       childFolders <- resourceFolders.filter(_.parentFolder === folderId)
     } yield childFolders
 
-    dbContext.run(action.result)
+    dbContext.run(action.result).map(rs => rs.map{ r =>
+      val fr = FolderResource(r.uri, r.label)
+      fr.version = r.version
+      fr.permissionMask = 1
+      fr
+    })
   }
 
   def selectResourcesFromResourceFolder(path: String): Future[Seq[JIResource]] = {
@@ -87,6 +104,42 @@ trait JIResourceFolderSupport { mySelf: DBRepository =>
     } yield rscs
 
     dbContext.run(action.result)
+  }
+
+  def selectResourceFolderModelIfExists(path: String): Future[Option[FolderResource]] = {
+    val action = resourceFolders.filter(_.uri === path)
+    dbContext.run(action.result.headOption).map{
+      case Some(r) =>
+        val fr = FolderResource(r.uri, r.label)
+        fr.version = r.version
+        fr.permissionMask = 1
+        Some(fr)
+      case None => None
+    }
+  }
+
+  def existsResourceFolder(uri: String): Future[Boolean] = {
+    val action = for {
+      f <- resourceFolders.filter(_.uri === uri)
+    } yield f
+
+    dbContext.run(action.exists.result)
+  }
+
+  def insertResourceFolderIfNotExists(uri: String): Future[Long] = {
+    val (parentPath, name) = splitPath(uri)
+    existsResourceFolder( uri ).flatMap { exists =>
+      if (exists) {
+        selectResourceFolder( uri ).map( _.id )
+      }
+      else {
+        for {
+          parentFolderId <- insertResourceFolderIfNotExists( parentPath ) if !exists
+          folderId       <- insertResourceFolder( JIResourceFolder(uri, name, name, None, parentFolderId) ) if !exists
+          folder         <- selectResourceFolder(folderId)
+        } yield folder.id
+      }
+    }
   }
 
   def insertResourceFolder(request: FolderResource): Future[Long] = {

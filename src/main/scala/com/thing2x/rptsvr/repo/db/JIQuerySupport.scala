@@ -31,25 +31,13 @@ final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
 }
 
 
-final case class JIQueryModel(query: JIQuery, resource: JIResource, uri: String, ds: Option[JIDataSourceModel]) extends DBModelKind
-
 trait JIQuerySupport { mySelf: DBRepository =>
 
-  def asApiModel(model: JIQueryModel): QueryResource = {
-    val fr = QueryResource(model.uri, model.resource.label)
-    fr.version = model.resource.version
-    fr.permissionMask = 1
-    fr.query = model.query.sqlQuery
-    fr.language = model.query.queryLanguage
-    fr.dataSource = model.ds.map( asApiModel )
-    fr
-  }
+  def selectQueryResourceModel(path: String): Future[QueryResource] = selectQueryResourceModel(Left(path))
 
-  def selectQueryResource(path: String): Future[JIQueryModel] = selectQueryResource(Left(path))
+  def selectQueryResourceModel(id: Long): Future[QueryResource] = selectQueryResourceModel(Right(id))
 
-  def selectQueryResource(id: Long): Future[JIQueryModel] = selectQueryResource(Right(id))
-
-  private def selectQueryResource(pathOrId: Either[String, Long]): Future[JIQueryModel] = {
+  private def selectQueryResourceModel(pathOrId: Either[String, Long]): Future[QueryResource] = {
     val action = pathOrId match {
       case Left(path) =>
         val (folderPath, name) = splitPath(path)
@@ -68,12 +56,41 @@ trait JIQuerySupport { mySelf: DBRepository =>
 
     dbContext.run(action.result.head).flatMap{ case(f, r, q) =>
       val dsFuture = q.dataSource match {
-        case Some(dsId) => selectDataSourceResource(dsId).map( Some( _ ) )
+        case Some(dsId) => selectDataSourceModel(dsId).map( Some( _ ) )
         case _ => Future( None )
       }
 
-      dsFuture.map( ds => JIQueryModel(q, r, s"${f.uri}/${r.name}", ds) )
+      dsFuture.map{ ds =>
+        val fr = QueryResource(s"${f.uri}/${r.name}", r.label)
+        fr.version = r.version
+        fr.permissionMask = 1
+        fr.query = q.sqlQuery
+        fr.language = q.queryLanguage
+        fr.dataSource = ds
+        fr
+      }
     }
+  }
+
+  def selectQueryResource(path: String): Future[JIQuery] = selectQueryResource(Left(path))
+
+  def selectQueryResource(id: Long): Future[JIQuery] = selectQueryResource(Right(id))
+
+  private def selectQueryResource(pathOrId: Either[String, Long]): Future[JIQuery] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        val (folderPath, name) = splitPath(path)
+        for {
+          folder   <- resourceFolders.filter(_.uri === folderPath)
+          resource <- resources.filter(_.parentFolder === folder.id).filter(_.name === name)
+          query    <- queryResources.filter(_.id === resource.id)
+        } yield query
+      case Right(id) =>
+        for {
+          query    <- queryResources.filter(_.id === id)
+        } yield query
+    }
+    dbContext.run(action.result.head)
   }
 
   def insertQueryResource(request: QueryResource): Future[Long] = {

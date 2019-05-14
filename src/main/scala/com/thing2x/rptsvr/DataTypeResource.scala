@@ -19,6 +19,10 @@ import io.circe.{ACursor, DecodingFailure, Json}
 
 import scala.collection.mutable
 
+object DataTypeResource {
+  def apply(uri: String, label: String)(implicit context: RepositoryContext) = new DataTypeResource(uri, label)
+}
+
 class DataTypeResource(val uri: String, val label: String)(implicit context: RepositoryContext) extends Resource {
   override val resourceType: String = "dataType"
   override val mediaType: MediaType.WithFixedCharset = MediaType.applicationWithFixedCharset("repository.dataType+json", HttpCharsets.`UTF-8`)
@@ -40,6 +44,17 @@ class DataTypeResource(val uri: String, val label: String)(implicit context: Rep
       case "date" => 3
       case "dateTime" => 4
       case "time" => 5
+    }
+  }
+
+  def typeId_=(v: Int): Unit = {
+    v match {
+      case 1 => `type` = "text"
+      case 2 => `type` = "number"
+      case 3 => `type` = "date"
+      case 4 => `type` = "dateTime"
+      case 5 => `type` = "time"
+      case _ => `type` = "text"
     }
   }
 

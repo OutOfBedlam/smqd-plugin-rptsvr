@@ -2,6 +2,7 @@ package com.thing2x.rptsvr.repo.db
 
 import com.thing2x.rptsvr.InputControlResource
 import com.thing2x.rptsvr.repo.db.DBSchema._
+import slick.dbio.DBIOAction
 import slick.jdbc.H2Profile.api._
 import slick.lifted.ProvenShape
 
@@ -45,15 +46,81 @@ final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, "JI
 
   def id = column[Long]("id", O.PrimaryKey)
 
-  def idFk = foreignKey("jiinputcontrol_id_fk", id, resources)(_.id)
-  def dataTypeFk = foreignKey("jiinputcontrol_data_type_fk", dataType, dataTypes)(_.id.?)
-  def listOfValuesFk = foreignKey("jiinputcontrol_list_of_values_fk", listOfValues, DBSchema.listOfValues)(_.id.?)
-  def listQueryFk = foreignKey("jiinputcontrol_list_query_fk", listQuery, queryResources)(_.id.?)
+  def idFk = foreignKey("JIInputControl_id_fk", id, resources)(_.id)
+  def dataTypeFk = foreignKey("JIInputControl_data_type_fk", dataType, dataTypes)(_.id.?)
+  def listOfValuesFk = foreignKey("JIInputControl_list_of_values_fk", listOfValues, DBSchema.listOfValues)(_.id.?)
+  def listQueryFk = foreignKey("JIInputControl_list_query_fk", listQuery, queryResources)(_.id.?)
 
   def * : ProvenShape[JIInputControl] = (controlType, dataType, listOfValues, listQuery, queryValueColumn, defaultValue, mandatory, readOnly, visible, id).mapTo[JIInputControl]
 }
 
 trait JIInputControlSupport { mySelf: DBRepository =>
+
+  def selectInputControlModel(path: String): Future[InputControlResource] = selectInputControlModel(Left(path))
+
+  def selectInputControlModel(id: Long): Future[InputControlResource] = selectInputControlModel(Right(id))
+
+  private def selectInputControlModel(pathOrId: Either[String, Long]): Future[InputControlResource] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        val (folderPath, name) = splitPath(path)
+        for {
+          folder   <- resourceFolders.filter( _.uri === folderPath )
+          resource <- resources.filter( _.name === name )
+          ic       <- inputControls.filter( _.id === resource.id)
+        } yield (ic, resource, folder)
+      case Right(id) =>
+        for {
+          ic       <- inputControls.filter( _.id === id )
+          resource <- ic.idFk
+          folder   <- resource.parentFolderFk
+        } yield (ic, resource, folder)
+    }
+
+    val result = for {
+      (ic, resource, folder) <- dbContext.run(action.result.head)
+      dt                     <- ic.dataType match {
+        case Some(dataTypeId) => selectDataTypeModel(dataTypeId).map(Some(_))
+        case _ => Future( None )
+      }
+      lov                    <- ic.listOfValues match {
+        case Some(lovId) => Future( None) // TODO: add query
+        case _ => Future(None)
+      }
+    } yield (ic, resource, folder, dt, lov)
+
+    result map { case (ic, resource, folder, dt, lov) =>
+      val fr = InputControlResource(s"${folder.uri}/${resource.name}", resource.name)
+      fr.visible = ic.visible
+      fr.readOnly = ic.readOnly
+      fr.mandatory = ic.mandatory
+      fr.dataType = dt
+      fr.listOfValues = lov
+      fr
+    }
+  }
+
+  def selectInputControl(path: String): Future[JIInputControl] = selectInputControl(Left(path))
+
+  def selectInputControl(id: Long): Future[JIInputControl] = selectInputControl(Right(id))
+
+  private def selectInputControl(pathOrId: Either[String, Long]): Future[JIInputControl] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        val (folderPath, name) = splitPath(path)
+        for {
+          folder   <- resourceFolders.filter( _.uri === folderPath )
+          resource <- resources.filter( _.parentFolder === folder.id ).filter( _.name === name )
+          ic       <- inputControls.filter( _.id === resource.id)
+        } yield ic
+      case Right(id) =>
+        for {
+          ic       <- inputControls.filter( _.id === id )
+        } yield ic
+    }
+
+    dbContext.run(action.result.head)
+  }
 
   def insertInputControl(ctl: InputControlResource): Future[Long] = {
     val (folderPath, name) = splitPath(ctl.uri)
@@ -73,7 +140,7 @@ trait JIInputControlSupport { mySelf: DBRepository =>
       dataTypeId   <- dtIdFuture
       lvId         <- lvIdFuture
       resourceId   <- insertResource( JIResource(name, folder.id, None, ctl.label, ctl.description, DBResourceTypes.inputControl, version = ctl.version + 1))
-      _            <- insertInputControl( JIInputControl(ctl.controlType, dataTypeId, lvId, None, None, None, ctl.mandatory, ctl.readOnly, ctl.visible) )
+      _            <- insertInputControl( JIInputControl(ctl.controlType, dataTypeId, lvId, None, None, None, ctl.mandatory, ctl.readOnly, ctl.visible, resourceId) )
     } yield resourceId
   }
 

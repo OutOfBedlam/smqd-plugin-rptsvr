@@ -50,40 +50,65 @@ final class JIReportUnitTable(tag: Tag) extends Table[JIReportUnit](tag, "JIRepo
 }
 
 
-final case class JIReportUnitModel(reportUnit: JIReportUnit, resource: JIResource, uri: String) extends DBModelKind
-
 trait JIReportUnitSupport { mySelf: DBRepository =>
 
-  def asApiModel(model: JIReportUnitModel): ReportUnitResource = {
-    val fr = ReportUnitResource(model.uri, model.resource.label)
+  def selectReportUnitModel(path: String): Future[ReportUnitResource] = selectReportUnitModel(Left(path))
 
-    fr
-  }
+  def selectReportUnitModel(id: Long): Future[ReportUnitResource] = selectReportUnitModel(Right(id))
 
-  def selectReportUnit(path: String): Future[JIReportUnitModel] = selectReportUnit(Left(path))
-
-  def selectReportUnit(id: Long): Future[JIReportUnitModel] = selectReportUnit(Right(id))
-
-  private def selectReportUnit(pathOrId: Either[String, Long]): Future[JIReportUnitModel] = {
+  private def selectReportUnitModel(pathOrId: Either[String, Long]): Future[ReportUnitResource] = {
     val action = pathOrId match {
       case Left(path) =>
         val (folderPath, name) = splitPath(path)
         for {
-          folder     <- resourceFolders.filter(_.uri === folderPath)
-          resource   <- resources.filter(_.name === name)
-          reportUnit <- reportUnits.filter(_.id === resource.id)
-        } yield (reportUnit, resource, folder)
+          folder     <- selectResourceFolder(folderPath)
+          resource   <- selectResource(path)
+          reportUnit <- selectReportUnit(resource.id)
+          reportUnitInputControls <- selectReportUnitInputControlModel(resource.id)
+          reportUnitResources     <- selectReportUnitResourceModel(resource.id)
+          jrxml                   <- selectFileResourceModel(reportUnit.mainReport.get)
+          ds            <- selectDataSourceModel(reportUnit.reportDataSource.get)
+        } yield (reportUnit, ds, resource, jrxml, reportUnitInputControls, reportUnitResources, folder)
       case Right(id) =>
         for {
-          reportUnit    <- reportUnits.filter(_.id === id)
-          resource      <- reportUnit.idFk
-          folder        <- resource.parentFolderFk
-        } yield (reportUnit, resource, folder)
+          reportUnit    <- selectReportUnit(id)
+          resource      <- selectResource(id)
+          folder        <- selectResourceFolder(resource.parentFolder)
+          reportUnitInputControls <- selectReportUnitInputControlModel(resource.id)
+          reportUnitResources     <- selectReportUnitResourceModel(resource.id)
+          jrxml                   <- selectFileResourceModel(reportUnit.mainReport.get)
+          ds            <- selectDataSourceModel(reportUnit.reportDataSource.get)
+        } yield (reportUnit, ds, resource, jrxml, reportUnitInputControls, reportUnitResources, folder)
     }
+    action.map { case (reportUnit, ds, resource, jrxml, ruic, rurs, folder) =>
+      val fr = ReportUnitResource(s"${folder.uri}/${resource.name}", resource.label)
+      fr.resources = rurs.map(r => (r.label, r)).toMap
+      fr.inputControls = ruic
+      fr.jrxml = Some(jrxml)
+      fr.dataSource = Some(ds)
+      fr
+    }
+  }
 
-    dbContext.run(action.result.head).map{ case (ru, resource, folder) =>
-      JIReportUnitModel(ru, resource, s"${folder.uri}/${resource.name}")
+  def selectReportUnit(path: String): Future[JIReportUnit] = selectReportUnit(Left(path))
+
+  def selectReportUnit(id: Long): Future[JIReportUnit] = selectReportUnit(Right(id))
+
+  private def selectReportUnit(pathOrId: Either[String, Long]): Future[JIReportUnit] = {
+    val action = pathOrId match {
+      case Left(path) =>
+        val (folderPath, name) = splitPath(path)
+        for {
+          folder <- resourceFolders.filter(_.uri === folderPath)
+          resource <- resources.filter(_.parentFolder === folder.id).filter(_.name === name)
+          reportUnit <- reportUnits.filter(_.id === resource.id)
+        } yield reportUnit
+      case Right(id) =>
+        for {
+          reportUnit <- reportUnits.filter(_.id === id)
+        } yield reportUnit
     }
+    dbContext.run(action.result.head)
   }
 
   def insertReportUnit(request: ReportUnitResource): Future[Long] = {
@@ -92,11 +117,11 @@ trait JIReportUnitSupport { mySelf: DBRepository =>
     val filesFolderPath = s"$parentFolderPath/${name}_files"
 
     val mainDsId = request.dataSource match {
-      case Some(ds) => selectDataSourceResource(ds.uri).map(x => Some(x.resource.id) )
+      case Some(ds) => selectJdbcDataSource(ds.uri).map( x => Some(x.id) )
       case None     => Future( None )
     }
     val queryId = request.query match {
-      case Some(q)  => selectQueryResource(q.uri).map( x => Some(x.resource.id))
+      case Some(q)  => selectQueryResource(q.uri).map( x => Some(x.id) )
       case None     => Future( None)
     }
     val jrxmlContent = request.jrxml match {
@@ -105,29 +130,24 @@ trait JIReportUnitSupport { mySelf: DBRepository =>
     }
 
     val reportUnitId = for {
-      parentFolderId <- selectResourceFolder(parentFolderPath).map( _.id )
-      dsId           <- mainDsId
-      queryId        <- queryId
-      // save report unit resource
-      resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, DBResourceTypes.reportUnit, version = request.version + 1) )
-      _              <- insertReportUnit( JIReportUnit(dsId, queryId, None, None, None, request.alwaysPromptControls, request.conrolsLayoutId, None, resourceId))
+      parentFolderId  <- selectResourceFolder(parentFolderPath).map( _.id )
+      dsId            <- mainDsId
+      queryId         <- queryId
       // create _files folder
-      filesFolderId  <- insertResourceFolder( JIResourceFolder(filesFolderPath, filesFolderName, filesFolderName, None, parentFolderId, hidden = true) )
-      // save jrxml resource
+      filesFolderId   <- insertResourceFolder( JIResourceFolder(filesFolderPath, filesFolderName, filesFolderName, None, parentFolderId, hidden = true) )
+      // save jrxml
       jrxmlResourceId <- insertResource( JIResource(request.jrxml.get.label, filesFolderId, None, request.jrxml.get.label, request.jrxml.get.description, DBResourceTypes.file, version = request.jrxml.get.version + 1))
-      _               <- insertFileResource( JIFileResource(DBResourceTypes.reportUnit, jrxmlContent, None, jrxmlResourceId) )
+      _               <- insertFileResource( JIFileResource("jrxml", jrxmlContent, None, jrxmlResourceId) )
+      // save report unit resource
+      reportUnitId    <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, DBResourceTypes.reportUnit, version = request.version + 1) )
+      _               <- insertReportUnit( JIReportUnit(dsId, queryId, Some(jrxmlResourceId), None, None, request.alwaysPromptControls, request.conrolsLayoutId, None, reportUnitId))
       // save resource files
-//      _              <- request.resources.foreach { case (name, rsc) =>
-//          insertFileResource( JIFileResource())
-//      }
+      _               <- insertReportUnitResource( reportUnitId, request.resources )
       // save inputControls
-      //_ <- reportUnitInputControls
-    } yield resourceId
+      _               <- insertReportUnitInputControl( reportUnitId, request.inputControls )
 
-    //    request.dataSource
-    //    request.inputControls
-    //    request.resources
-    //    request.jrxml
+    } yield reportUnitId
+
     reportUnitId
   }
 
