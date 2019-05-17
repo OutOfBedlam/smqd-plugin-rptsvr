@@ -22,12 +22,20 @@ import akka.stream.Materializer
 import com.thing2x.rptsvr.{Repository, RepositoryContext}
 import com.thing2x.smqd.Smqd
 import com.typesafe.config.Config
+import slick.jdbc.JdbcProfile
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Config) extends RepositoryContext {
+
+  val profile: JdbcProfile =
+  {
+    config.getString("jdbc.driver") match {
+      case "org.h2.Driver" => slick.jdbc.H2Profile
+    }
+  }
 
   val readOnly: Boolean = config.getBoolean("readonly")
   val dateFormat: SimpleDateFormat = new SimpleDateFormat(config.getString("formats.date"))
@@ -37,17 +45,21 @@ class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Co
 
   private val deferedBlock = new ListBuffer[() => Unit]
 
-  import DBSchema.profile.api._
+  import profile.api._
 
   private var _database: Database = _
   def database: Database = _database
 
   def open()(block: => Unit): Unit = {
-    val clazz = Class.forName("org.h2.Driver")
+    val driverClass = config.getString("jdbc.driver")
+    val connectionUrl = config.getString("jdbc.url")
+    val username = config.getString("jdbc.username")
+    val password = config.getString("jdbc.password")
+
+    val clazz = Class.forName(driverClass)
     val driver = clazz.getDeclaredConstructor().newInstance().asInstanceOf[Driver]
 
-    val url = "jdbc:h2:tcp://localhost:9099/mem:sampledb"
-    _database = Database.forDriver(driver, url, "sa", "sa")
+    _database = Database.forDriver(driver, connectionUrl, username, password)
 
     defer(block)
   }

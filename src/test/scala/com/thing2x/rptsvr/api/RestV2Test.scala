@@ -47,7 +47,7 @@ class RestV2Test extends FlatSpec with ScalatestRouteTest with BeforeAndAfterAll
   var engine: ReportEngine = _
   var exportDir: File = _
   var repoDir: File = _
-  val readOnly: Boolean = config.getBoolean("smqd.report-repo.config.readonly")
+  val readOnly: Boolean = config.getBoolean("smqd.report-repo-db.config.readonly")
   val writingTest: Boolean = !readOnly
 
   override def createActorSystem(): ActorSystem = ActorSystem(actorSystemNameFrom(getClass), config)

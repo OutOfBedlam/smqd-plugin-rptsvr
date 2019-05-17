@@ -23,6 +23,7 @@ import scala.language.implicitConversions
 
 object DBSchema {
 
+  private[db] var profile0: JdbcProfile = _
   val profile: JdbcProfile = slick.jdbc.H2Profile
 
   import profile.api._
@@ -45,22 +46,23 @@ object DBSchema {
   val inputControlQueryColumns = TableQuery[JIInputControlQueryColumnTable]
   val listOfValues = TableQuery[JIListOfValuesTable]
 
-  private val schema = Seq(
-    resourceFolders.schema,
-    resources.schema,
-    fileResources.schema,
-    jdbcResources.schema,
-    queryResources.schema,
-    dataTypes.schema,
-    listOfValues.schema,
-    inputControls.schema,
-    inputControlQueryColumns.schema,
-    reportUnits.schema,
-    reportUnitResources.schema,
-    reportUnitInputControls.schema,
-  )
-
   def createSchema(ctx: DBRepositoryContext): Unit = {
+
+    val schema = Seq(
+      resourceFolders.schema,
+      resources.schema,
+      fileResources.schema,
+      jdbcResources.schema,
+      queryResources.schema,
+      dataTypes.schema,
+      listOfValues.schema,
+      inputControls.schema,
+      inputControlQueryColumns.schema,
+      reportUnits.schema,
+      reportUnitResources.schema,
+      reportUnitInputControls.schema,
+    )
+
     val resourceFolderInsert = resourceFolders returning resourceFolders.map(_.id)
     implicit val ec: ExecutionContext = ctx.executionContext
     val setup = for {
