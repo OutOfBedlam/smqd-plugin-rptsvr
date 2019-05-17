@@ -15,12 +15,12 @@
 
 package com.thing2x.rptsvr.repo.db
 
-import java.sql.Driver
 import java.text.SimpleDateFormat
 
 import akka.stream.Materializer
 import com.thing2x.rptsvr.{Repository, RepositoryContext}
 import com.thing2x.smqd.Smqd
+import com.thing2x.smqd.util.ConfigUtil._
 import com.typesafe.config.Config
 import slick.jdbc.JdbcProfile
 
@@ -32,12 +32,12 @@ class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Co
 
   val profile: JdbcProfile =
   {
-    config.getString("jdbc.driver") match {
+    config.getString("database.driver") match {
       case "org.h2.Driver" => slick.jdbc.H2Profile
     }
   }
 
-  val readOnly: Boolean = config.getBoolean("readonly")
+  val readOnly: Boolean = config.getOptionBoolean("database.readOnly").getOrElse(false)
   val dateFormat: SimpleDateFormat = new SimpleDateFormat(config.getString("formats.date"))
   val datetimeFormat: SimpleDateFormat = new SimpleDateFormat(config.getString("formats.datetime"))
   val executionContext: ExecutionContext = smqd.Implicit.gloablDispatcher
@@ -51,16 +51,7 @@ class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Co
   def database: Database = _database
 
   def open()(block: => Unit): Unit = {
-    val driverClass = config.getString("jdbc.driver")
-    val connectionUrl = config.getString("jdbc.url")
-    val username = config.getString("jdbc.username")
-    val password = config.getString("jdbc.password")
-
-    val clazz = Class.forName(driverClass)
-    val driver = clazz.getDeclaredConstructor().newInstance().asInstanceOf[Driver]
-
-    _database = Database.forDriver(driver, connectionUrl, username, password)
-
+    _database = Database.forConfig("database", config)
     defer(block)
   }
 

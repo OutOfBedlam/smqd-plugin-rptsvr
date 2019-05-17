@@ -33,7 +33,7 @@ object Dependencies {
   ).map ( _ % "3.3.0")
 
   val quartz: Seq[ModuleID] = Seq(
-    "com.enragedginger" %% "akka-quartz-scheduler" % "1.8.0-akka-2.5.x"
+    "com.enragedginger" %% "akka-quartz-scheduler" % "1.8.0-akka-2.5.x" exclude("com.zaxxer", "HikariCP-java6")
   )
 
   val h2db: Seq[ModuleID] = Seq(
