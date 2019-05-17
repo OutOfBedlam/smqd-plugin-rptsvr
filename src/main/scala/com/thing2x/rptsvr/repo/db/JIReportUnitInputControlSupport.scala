@@ -33,15 +33,15 @@ final case class JIReportUnitInputControl ( reportUnitId: Long,
 trait JIReportUnitInputControlSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIReportUnitInputControlTable(tag: Tag) extends Table[JIReportUnitInputControl](tag, "JIReportUnitInputControl") {
-    def reportUnitId = column[Long]("report_unit_id")
-    def inputControlId = column[Long]("input_control_id")
-    def controlIndex = column[Int]("control_index")
+  final class JIReportUnitInputControlTable(tag: Tag) extends Table[JIReportUnitInputControl](tag, "JIREPORTUNITINPUTCONTROL") {
+    def reportUnitId = column[Long]("REPORT_UNIT_ID")
+    def inputControlId = column[Long]("INPUT_CONTROL_ID")
+    def controlIndex = column[Int]("CONTROL_INDEX")
 
-    def pk = primaryKey("JIReportUnitInputControl_pk", (reportUnitId, controlIndex))
+    def pk = primaryKey("JIREPORTUNITINPUTCONTROL_PK", (reportUnitId, controlIndex))
 
-    def inputControlIdFk = foreignKey("JIReportUnitInputControl_input_control_id_fk", inputControlId, inputControls)(_.id)
-    def reportUnitIdFk = foreignKey("JIReportUnitInputControl_report_unit_id_fk", reportUnitId, reportUnits)(_.id)
+    def inputControlIdFk = foreignKey("JIREPORTUNITINPUTCONTROL_INPUT_CONTROL_ID_FK", inputControlId, inputControls)(_.id)
+    def reportUnitIdFk = foreignKey("JIREPORTUNITINPUTCONTROL_REPORT_UNIT_ID_FK", reportUnitId, reportUnits)(_.id)
 
     def * : ProvenShape[JIReportUnitInputControl] = (reportUnitId, inputControlId, controlIndex).mapTo[JIReportUnitInputControl]
   }

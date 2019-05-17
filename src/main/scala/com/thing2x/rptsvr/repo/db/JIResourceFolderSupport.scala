@@ -50,17 +50,17 @@ trait JIResourceFolderSupport { mySelf: DBRepository =>
 
   import dbContext.profile.api._
 
-  final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIResourceFolder") {
-    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-    def version = column[Int]("version")
-    def uri = column[String]("uri", O.Unique)
-    def hidden = column[Boolean]("hidden", O.Default(false))
-    def name = column[String]("name")
-    def label = column[String]("label")
-    def description = column[Option[String]]("description")
-    def parentFolder = column[Long]("parent_folder")
-    def creationDate = column[Date]("creation_date")
-    def updateDate = column[Date]("update_date")
+  final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIRESOURCEFOLDER") {
+    def id = column[Long]("ID", O.PrimaryKey, O.AutoInc)
+    def version = column[Int]("VERSION")
+    def uri = column[String]("URI", O.Unique)
+    def hidden = column[Boolean]("HIDDEN", O.Default(false))
+    def name = column[String]("NAME")
+    def label = column[String]("LABEL")
+    def description = column[Option[String]]("DESCRIPTION")
+    def parentFolder = column[Long]("PARENT_FOLDER")
+    def creationDate = column[Date]("CREATION_DATE")
+    def updateDate = column[Date]("UPDATE_DATE")
 
     def * = (uri, name, label, description, parentFolder, hidden, creationDate, updateDate, version, id).mapTo[JIResourceFolder]
   }

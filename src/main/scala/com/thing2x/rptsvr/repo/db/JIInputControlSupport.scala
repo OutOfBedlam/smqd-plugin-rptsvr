@@ -47,23 +47,23 @@ final case class JIInputControl( controlType: Int,
 trait JIInputControlSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, "JIInputControl") {
-    def controlType = column[Int]("type")
-    def dataType = column[Option[Long]]("data_type")
-    def listOfValues = column[Option[Long]]("list_of_values")
-    def listQuery = column[Option[Long]]("list_query")
-    def queryValueColumn = column[Option[String]]("query_value_column")
-    def defaultValue = column[Option[Array[Byte]]]("defaultValue")
-    def mandatory = column[Boolean]("mandatory")
-    def readOnly = column[Boolean]("readOnly")
-    def visible = column[Boolean]("visible")
+  final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, "JIINPUTCONTROL") {
+    def controlType = column[Int]("TYPE")
+    def dataType = column[Option[Long]]("DATA_TYPE")
+    def listOfValues = column[Option[Long]]("LIST_OF_VALUES")
+    def listQuery = column[Option[Long]]("LIST_QUERY")
+    def queryValueColumn = column[Option[String]]("QUERY_VALUE_COLUMN")
+    def defaultValue = column[Option[Array[Byte]]]("DEFAULTVALUE")
+    def mandatory = column[Boolean]("MANDATORY")
+    def readOnly = column[Boolean]("READONLY")
+    def visible = column[Boolean]("VISIBLE")
 
-    def id = column[Long]("id", O.PrimaryKey)
+    def id = column[Long]("ID", O.PrimaryKey)
 
-    def idFk = foreignKey("JIInputControl_id_fk", id, resources)(_.id)
-    def dataTypeFk = foreignKey("JIInputControl_data_type_fk", dataType, dataTypes)(_.id.?)
-    def listOfValuesFk = foreignKey("JIInputControl_list_of_values_fk", listOfValues, mySelf.listOfValues)(_.id.?)
-    def listQueryFk = foreignKey("JIInputControl_list_query_fk", listQuery, queryResources)(_.id.?)
+    def idFk = foreignKey("JIINPUTCONTROL_ID_FK", id, resources)(_.id)
+    def dataTypeFk = foreignKey("JIINPUTCONTROL_DATA_TYPE_FK", dataType, dataTypes)(_.id.?)
+    def listOfValuesFk = foreignKey("JIINPUTCONTROL_LIST_OF_VALUES_FK", listOfValues, mySelf.listOfValues)(_.id.?)
+    def listQueryFk = foreignKey("JIINPUTCONTROL_LIST_QUERY_FK", listQuery, queryResources)(_.id.?)
 
     def * : ProvenShape[JIInputControl] = (controlType, dataType, listOfValues, listQuery, queryValueColumn, defaultValue, mandatory, readOnly, visible, id).mapTo[JIInputControl]
   }

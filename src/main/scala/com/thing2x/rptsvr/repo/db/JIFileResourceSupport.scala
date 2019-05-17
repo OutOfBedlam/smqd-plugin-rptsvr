@@ -40,13 +40,13 @@ final case class JIFileResource( fileType: String,
 trait JIFileResourceSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, "JIFileResource") {
-    def fileType    = column[String]("file_type")
-    def data   = column[Array[Byte]]("data", O.SqlType("BLOB"))
-    def reference    = column[Long]("reference")
-    def id           = column[Long]("id", O.PrimaryKey)
+  final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, "JIFILERESOURCE") {
+    def fileType    = column[String]("FILE_TYPE")
+    def data   = column[Array[Byte]]("DATA", O.SqlType("BLOB"))
+    def reference    = column[Long]("REFERENCE")
+    def id           = column[Long]("ID", O.PrimaryKey)
 
-    def idFk = foreignKey("fileresource_id_fk", id, resources)(_.id)
+    def idFk = foreignKey("FILERESOURCE_ID_FK", id, resources)(_.id)
 
     def * : ProvenShape[JIFileResource] = (fileType, data.?, reference.?, id) <> (JIFileResource.tupled, JIFileResource.unapply)
   }

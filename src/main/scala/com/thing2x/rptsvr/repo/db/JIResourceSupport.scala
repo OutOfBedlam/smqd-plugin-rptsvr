@@ -49,19 +49,19 @@ trait JIResourceSupport { mySelf: DBRepository =>
 
   import dbContext.profile.api._
 
-  final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource") {
-    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-    def version = column[Int]("version")
-    def name = column[String]("name")
-    def parentFolder = column[Long]("parent_folder")
-    def childrenFolder = column[Option[Long]]("childrenFolder")
-    def label = column[String]("label")
-    def description = column[Option[String]]("description")
-    def resourceType = column[String]("resourceType")
-    def creationDate = column[Date]("creation_date")
-    def updateDate = column[Date]("update_date")
+  final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIRESOURCE") {
+    def id = column[Long]("ID", O.PrimaryKey, O.AutoInc)
+    def version = column[Int]("VERSION")
+    def name = column[String]("NAME")
+    def parentFolder = column[Long]("PARENT_FOLDER")
+    def childrenFolder = column[Option[Long]]("CHILDRENFOLDER")
+    def label = column[String]("LABEL")
+    def description = column[Option[String]]("DESCRIPTION")
+    def resourceType = column[String]("RESOURCETYPE")
+    def creationDate = column[Date]("CREATION_DATE")
+    def updateDate = column[Date]("UPDATE_DATE")
 
-    def parentFolderFk = foreignKey("resource_parent_folder_fk", parentFolder, resourceFolders)(_.id)
+    def parentFolderFk = foreignKey("RESOURCE_PARENT_FOLDER_FK", parentFolder, resourceFolders)(_.id)
 
     def * = (name, parentFolder, childrenFolder, label, description, resourceType, creationDate, updateDate, version, id).mapTo[JIResource]
   }

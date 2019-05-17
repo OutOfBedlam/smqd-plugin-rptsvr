@@ -22,21 +22,24 @@ import com.thing2x.rptsvr.{Repository, RepositoryContext}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.util.ConfigUtil._
 import com.typesafe.config.Config
+import com.typesafe.scalalogging.StrictLogging
 import slick.jdbc.JdbcProfile
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Config) extends RepositoryContext {
+class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Config) extends RepositoryContext with StrictLogging {
 
   val profile: JdbcProfile =
   {
     config.getString("database.driver") match {
       case "org.h2.Driver" => slick.jdbc.H2Profile
+      case "oracle.jdbc.OracleDriver" => slick.jdbc.OracleProfile
     }
   }
 
+  logger.info(s"Database Profile = $profile")
   val readOnly: Boolean = config.getOptionBoolean("database.readOnly").getOrElse(false)
   val dateFormat: SimpleDateFormat = new SimpleDateFormat(config.getString("formats.date"))
   val datetimeFormat: SimpleDateFormat = new SimpleDateFormat(config.getString("formats.datetime"))

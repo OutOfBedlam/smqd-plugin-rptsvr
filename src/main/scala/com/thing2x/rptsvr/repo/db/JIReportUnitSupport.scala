@@ -48,21 +48,21 @@ trait JIReportUnitSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
 
-  final class JIReportUnitTable(tag: Tag) extends Table[JIReportUnit](tag, "JIReportUnit") {
-    def reportDataSource = column[Option[Long]]("reportDataSource")
-    def query = column[Option[Long]]("query")
-    def mainReport = column[Option[Long]]("mainReport")
-    def controlRenderer = column[Option[String]]("controlrenderer")
-    def reportRenderer = column[Option[String]]("reportrenderer")
-    def promptControls = column[Boolean]("promptcontrols")
-    def controlsLayout = column[Int]("controlslayout")
-    def dataSnapshotId = column[Option[Long]]("data_snapshot_id")
-    def id = column[Long]("id", O.PrimaryKey)
+  final class JIReportUnitTable(tag: Tag) extends Table[JIReportUnit](tag, "JIREPORTUNIT") {
+    def reportDataSource = column[Option[Long]]("REPORTDATASOURCE")
+    def query = column[Option[Long]]("QUERY")
+    def mainReport = column[Option[Long]]("MAINREPORT")
+    def controlRenderer = column[Option[String]]("CONTROLRENDERER")
+    def reportRenderer = column[Option[String]]("REPORTRENDERER")
+    def promptControls = column[Boolean]("PROMPTCONTROLS")
+    def controlsLayout = column[Int]("CONTROLSLAYOUT")
+    def dataSnapshotId = column[Option[Long]]("DATA_SNAPSHOT_ID")
+    def id = column[Long]("ID", O.PrimaryKey)
 
-    def idFk = foreignKey("jireportunit_id_fk", id, resources)(_.id)
-    def queryFk = foreignKey("jireportunit_query_fk", query, queryResources)(_.id.?)
-    def reportDataSourceFk = foreignKey("jireportunit_datasource_fk", reportDataSource, resources)(_.id.?)
-    def mainReportFk = foreignKey("jireportunit_mainreport_fk", mainReport, fileResources)(_.id.?)
+    def idFk = foreignKey("JIREPORTUNIT_ID_FK", id, resources)(_.id)
+    def queryFk = foreignKey("JIREPORTUNIT_QUERY_FK", query, queryResources)(_.id.?)
+    def reportDataSourceFk = foreignKey("JIREPORTUNIT_DATASOURCE_FK", reportDataSource, resources)(_.id.?)
+    def mainReportFk = foreignKey("JIREPORTUNIT_MAINREPORT_FK", mainReport, fileResources)(_.id.?)
 
     def * : ProvenShape[JIReportUnit] = (reportDataSource, query, mainReport, controlRenderer, reportRenderer, promptControls, controlsLayout, dataSnapshotId, id).mapTo[JIReportUnit]
   }

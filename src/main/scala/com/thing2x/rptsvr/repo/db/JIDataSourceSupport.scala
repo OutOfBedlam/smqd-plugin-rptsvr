@@ -40,15 +40,15 @@ trait JIDataSourceSupport { myself: DBRepository =>
   import dbContext.profile.api._
 
 
-  final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag, "JIJdbcDatasource") {
-    def driver = column[String]("driver")
-    def connectionUrl = column[Option[String]]("connectionUrl")
-    def username = column[Option[String]]("username")
-    def password = column[Option[String]]("password")
-    def timezone = column[Option[String]]("timezone")
-    def id = column[Long]("id", O.PrimaryKey)
+  final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag, "JIJDBCDATASOURCE") {
+    def driver = column[String]("DRIVER")
+    def connectionUrl = column[Option[String]]("CONNECTIONURL")
+    def username = column[Option[String]]("USERNAME")
+    def password = column[Option[String]]("PASSWORD")
+    def timezone = column[Option[String]]("TIMEZONE")
+    def id = column[Long]("ID", O.PrimaryKey)
 
-    def idFk = foreignKey("jdbcdtatsource_id_fk", id, resources)(_.id)
+    def idFk = foreignKey("JDBCDATASOURCE_ID_FK", id, resources)(_.id)
 
     def * : ProvenShape[JIJdbcDatasource] = (driver, connectionUrl, username, password, timezone, id).mapTo[JIJdbcDatasource]
   }
@@ -88,6 +88,8 @@ trait JIDataSourceSupport { myself: DBRepository =>
           fr.username = jdbc.username
           fr.password = jdbc.password
           fr.connectionUrl = jdbc.connectionUrl
+          fr.creationDate = resource.creationDate
+          fr.updateDate = resource.updateDate
           fr
         case x =>
           logger.error(s"Unimplemented error: $x")

@@ -35,15 +35,15 @@ final case class JIReportUnitResource ( reportUnitId: Long,
 trait JIReportUnitResourceSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIReportUnitResourceTable(tag: Tag) extends Table[JIReportUnitResource](tag, "JIReportUnitResource") {
-    def reportUnitId = column[Long]("report_unit_id")
-    def resourceId = column[Long]("resource_id")
-    def resourceIndex = column[Int]("resource_index")
+  final class JIReportUnitResourceTable(tag: Tag) extends Table[JIReportUnitResource](tag, "JIREPORTUNITRESOURCE") {
+    def reportUnitId = column[Long]("REPORT_UNIT_ID")
+    def resourceId = column[Long]("RESOURCE_ID")
+    def resourceIndex = column[Int]("RESOURCE_INDEX")
 
-    def pk = primaryKey("JIReportUnitResource_pk", (reportUnitId, resourceIndex))
+    def pk = primaryKey("JIREPORTUNITRESOURCE_PK", (reportUnitId, resourceIndex))
 
-    def reportUnitIdFk = foreignKey("JIReportUnitResource_reportUnitId_fk", reportUnitId, reportUnits)(_.id)
-    def resourceIdFk = foreignKey("JIReportUnitResource_resourceId_fk", resourceId, fileResources)(_.id)
+    def reportUnitIdFk = foreignKey("JIREPORTUNITRESOURCE_REPORTUNITID_FK", reportUnitId, reportUnits)(_.id)
+    def resourceIdFk = foreignKey("JIREPORTUNITRESOURCE_RESOURCEID_FK", resourceId, fileResources)(_.id)
 
     def * : ProvenShape[JIReportUnitResource] = (reportUnitId, resourceId, resourceIndex).mapTo[JIReportUnitResource]
   }

@@ -35,13 +35,13 @@ final case class JIInputControlQueryColumn ( inputControlId: Long,
 trait JIInputControlQueryColumnSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIInputControlQueryColumnTable(tag: Tag) extends Table[JIInputControlQueryColumn](tag, "JIInputControlQueryColumn") {
-    def inputControlId = column[Long]("input_control_id")
-    def queryColumn = column[String]("query_column")
-    def columnIndex = column[Int]("column_index")
+  final class JIInputControlQueryColumnTable(tag: Tag) extends Table[JIInputControlQueryColumn](tag, "JIINPUTCONTROLQUERYCOLUMN") {
+    def inputControlId = column[Long]("INPUT_CONTROL_ID")
+    def queryColumn = column[String]("QUERY_COLUMN")
+    def columnIndex = column[Int]("COLUMN_INDEX")
 
-    def pk = primaryKey("jiinputcontrolquerycolumn_pk", (inputControlId, columnIndex))
-    def inputControlIdFk = foreignKey("jiinputcontrolquerycolumn_input_control_id_fk", inputControlId, inputControls)(_.id)
+    def pk = primaryKey("JIINPUTCONTROLQUERYCOLUMN_PK", (inputControlId, columnIndex))
+    def inputControlIdFk = foreignKey("JIINPUTCONTROLQUERYCOLUMN_INPUT_CONTROL_ID_FK", inputControlId, inputControls)(_.id)
 
     def * : ProvenShape[JIInputControlQueryColumn] = (inputControlId, queryColumn, columnIndex).mapTo[JIInputControlQueryColumn]
   }

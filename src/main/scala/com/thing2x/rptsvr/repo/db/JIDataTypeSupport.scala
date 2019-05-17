@@ -47,16 +47,16 @@ final case class JIDataType( dataType: Int,
 trait JIDataTypeSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIDataTypeTable(tag: Tag) extends Table[JIDataType](tag, "JIDataType") {
-    def dataType = column[Int]("type")
-    def maxLength = column[Int]("maxLength")
-    def decimals = column[Int]("decimals")
-    def regularExpr = column[String]("regularExpr")
-    def minValue = column[Array[Byte]]("minValue")
-    def maxValue = column[Array[Byte]]("max_value")
-    def strictMin = column[Boolean]("strictMin")
-    def strictMax = column[Boolean]("strictMax")
-    def id = column[Long]("id", O.PrimaryKey)
+  final class JIDataTypeTable(tag: Tag) extends Table[JIDataType](tag, "JIDATATYPE") {
+    def dataType = column[Int]("TYPE")
+    def maxLength = column[Int]("MAXLENGTH")
+    def decimals = column[Int]("DECIMALS")
+    def regularExpr = column[String]("REGULAREXPR")
+    def minValue = column[Array[Byte]]("MINVALUE")
+    def maxValue = column[Array[Byte]]("MAX_VALUE")
+    def strictMin = column[Boolean]("STRICTMIN")
+    def strictMax = column[Boolean]("STRICTMAX")
+    def id = column[Long]("ID", O.PrimaryKey)
 
     def * : ProvenShape[JIDataType] = (dataType, maxLength.?, decimals.?, regularExpr.?, minValue.?, maxValue.?, strictMin, strictMax, id)<>( JIDataType.tupled, JIDataType.unapply )
   }

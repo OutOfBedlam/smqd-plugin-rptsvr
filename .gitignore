@@ -10,6 +10,8 @@ src/test/export/
 
 src/main/resources/VERSION.NFO
 
+src/test/conf/*-dev.conf
+
 # macOS
 .DS_Store
 **/.DS_Store

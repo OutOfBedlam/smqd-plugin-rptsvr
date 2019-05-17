@@ -35,14 +35,14 @@ final case class JIQuery( queryLanguage: String,
 trait JIQuerySupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
-    def queryLanguage = column[String]("query_language")
-    def sqlQuery = column[String]("sql_query", O.SqlType("CLOB"))
-    def dataSource = column[Option[Long]]("dataSource")
-    def id = column[Long]("id", O.PrimaryKey)
+  final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQUERY") {
+    def queryLanguage = column[String]("QUERY_LANGUAGE")
+    def sqlQuery = column[String]("SQL_QUERY", O.SqlType("CLOB"))
+    def dataSource = column[Option[Long]]("DATASOURCE")
+    def id = column[Long]("ID", O.PrimaryKey)
 
-    def idFk = foreignKey("jiquery_id_fk", id, resources)(_.id)
-    def dataSourceFk = foreignKey("jiquery_datasource_fk", dataSource, resources)(_.id.?)
+    def idFk = foreignKey("JIQUERY_ID_FK", id, resources)(_.id)
+    def dataSourceFk = foreignKey("JIQUERY_DATASOURCE_FK", dataSource, resources)(_.id.?)
 
     def * : ProvenShape[JIQuery] = (queryLanguage, sqlQuery, dataSource, id).mapTo[JIQuery]
   }

@@ -43,22 +43,22 @@ trait JIListOfValuesSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
 
-  final class JIListOfValuesTable(tag: Tag) extends Table[JIListOfValues](tag, "JIListOfValues") {
-    def id = column[Long]("id", O.PrimaryKey)
+  final class JIListOfValuesTable(tag: Tag) extends Table[JIListOfValues](tag, "JILISTOFVALUES") {
+    def id = column[Long]("ID", O.PrimaryKey)
 
-    def idFk = foreignKey("jilistofvalues_id_fk", id, resources)(_.id)
+    def idFk = foreignKey("JILISTOFVALUES_ID_FK", id, resources)(_.id)
 
     def * : ProvenShape[JIListOfValues] = id.mapTo[JIListOfValues]
   }
 
-  final class JIListOfValueItemTable(tag: Tag) extends Table[JIListOfValuesItem](tag, "JIListOfValuesItem") {
-    def label = column[Option[String]]("label")
-    def value = column[Option[Array[Byte]]]("value")
-    def idx = column[Int]("idx")
-    def id = column[Long]("id", O.PrimaryKey)
+  final class JIListOfValueItemTable(tag: Tag) extends Table[JIListOfValuesItem](tag, "JILISTOFVALUESITEM") {
+    def label = column[Option[String]]("LABEL")
+    def value = column[Option[Array[Byte]]]("VALUE")
+    def idx = column[Int]("IDX")
+    def id = column[Long]("ID", O.PrimaryKey)
 
-    def pk = primaryKey("jilistofvaluesitem_pk", (id, idx))
-    def idFk = foreignKey("jilistofvaluesitem_id_fk", id, listOfValues)(_.id)
+    def pk = primaryKey("JILISTOFVALUESITEM_PK", (id, idx))
+    def idFk = foreignKey("JILISTOFVALUESITEM_ID_FK", id, listOfValues)(_.id)
 
     def * : ProvenShape[JIListOfValuesItem] = (label, value, idx, id).mapTo[JIListOfValuesItem]
   }
