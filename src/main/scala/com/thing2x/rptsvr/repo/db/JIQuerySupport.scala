@@ -82,6 +82,9 @@ trait JIQuerySupport { mySelf: DBRepository =>
         fr.query = q.sqlQuery
         fr.language = q.queryLanguage
         fr.dataSource = ds
+        fr.creationDate = r.creationDate
+        fr.updateDate = r.updateDate
+        fr.description = r.description
         fr
       }
     }

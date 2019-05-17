@@ -81,6 +81,9 @@ trait JIResourceFolderSupport { mySelf: DBRepository =>
       val fr = FolderResource(r.uri, r.label)
       fr.version = r.version
       fr.permissionMask = 1
+      fr.creationDate = r.creationDate
+      fr.updateDate = r.updateDate
+      fr.description = r.description
       fr
     }
   }

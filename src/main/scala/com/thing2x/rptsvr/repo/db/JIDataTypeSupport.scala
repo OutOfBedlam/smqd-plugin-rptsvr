@@ -92,6 +92,9 @@ trait JIDataTypeSupport { mySelf: DBRepository =>
       fr.maxValue = dt.maxValue.map(new String(_))
       fr.strictMin = dt.strictMin
       fr.strictMax = dt.strictMax
+      fr.creationDate = resource.creationDate
+      fr.updateDate = resource.updateDate
+      fr.description = resource.description
       fr
     }
   }

@@ -110,6 +110,9 @@ trait JIFileResourceSupport { mySelf: DBRepository =>
       fr.version = resource.version
       fr.permissionMask = 1
       fr.fileType = file.fileType
+      fr.creationDate = resource.creationDate
+      fr.updateDate = resource.updateDate
+      fr.description = resource.description
       fr
     }
   }

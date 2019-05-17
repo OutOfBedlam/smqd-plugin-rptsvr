@@ -109,6 +109,9 @@ trait JIInputControlSupport { mySelf: DBRepository =>
       fr.mandatory = ic.mandatory
       fr.dataType = dt
       fr.listOfValues = lov
+      fr.creationDate = resource.creationDate
+      fr.updateDate = resource.updateDate
+      fr.description = resource.description
       fr
     }
   }

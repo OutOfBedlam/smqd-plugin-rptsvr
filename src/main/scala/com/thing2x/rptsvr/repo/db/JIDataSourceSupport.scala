@@ -90,6 +90,7 @@ trait JIDataSourceSupport { myself: DBRepository =>
           fr.connectionUrl = jdbc.connectionUrl
           fr.creationDate = resource.creationDate
           fr.updateDate = resource.updateDate
+          fr.description = resource.description
           fr
         case x =>
           logger.error(s"Unimplemented error: $x")

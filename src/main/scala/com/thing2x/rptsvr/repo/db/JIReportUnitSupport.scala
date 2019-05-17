@@ -107,6 +107,9 @@ trait JIReportUnitSupport { mySelf: DBRepository =>
         fr.inputControls = ruic
         fr.jrxml = jrxml
         fr.dataSource = ds
+        fr.creationDate = resource.creationDate
+        fr.updateDate = resource.updateDate
+        fr.description = resource.description
         fr
       }
     }
