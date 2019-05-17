@@ -195,7 +195,7 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
       val ds = dsResource.get.asInstanceOf[JdbcDataSourceResource]
 
       logger.debug(s"JDBC DS driver=${ds.driverClass} url=${ds.connectionUrl}")
-      val clazz = Class.forName("org.h2.Driver")
+      val clazz = Class.forName(ds.driverClass.get)
       val driver = clazz.getDeclaredConstructor().newInstance().asInstanceOf[Driver]
 
       val props = new Properties()
