@@ -7,7 +7,7 @@ lazy val root = (project in file("."))
     organization := "com.thing2x",
     version := versionString,
     scalaVersion := Dependencies.Versions.scala,
-    scalacOptions in ThisBuild ++= Seq("-feature", "-deprecation"),
+    scalacOptions in ThisBuild ++= Seq("-feature", "-deprecation", "-unchecked"),
   )
   .settings(
     fork in Test := true

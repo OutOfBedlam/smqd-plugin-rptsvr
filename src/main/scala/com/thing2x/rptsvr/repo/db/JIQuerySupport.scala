@@ -15,12 +15,10 @@
 
 package com.thing2x.rptsvr.repo.db
 import com.thing2x.rptsvr.QueryResource
-import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
 
-import DBSchema.profile.api._
 
 // create table JIQuery (
 //        id number(19,0) not null,
@@ -34,20 +32,21 @@ final case class JIQuery( queryLanguage: String,
                           dataSource: Option[Long],
                           id: Long = 0L)
 
-final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
-  def queryLanguage = column[String]("query_language")
-  def sqlQuery = column[String]("sql_query", O.SqlType("CLOB"))
-  def dataSource = column[Option[Long]]("dataSource")
-  def id = column[Long]("id", O.PrimaryKey)
-
-  def idFk = foreignKey("jiquery_id_fk", id, resources)(_.id)
-  def dataSourceFk = foreignKey("jiquery_datasource_fk", dataSource, resources)(_.id.?)
-
-  def * : ProvenShape[JIQuery] = (queryLanguage, sqlQuery, dataSource, id).mapTo[JIQuery]
-}
-
-
 trait JIQuerySupport { mySelf: DBRepository =>
+  import dbContext.profile.api._
+
+  final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQuery") {
+    def queryLanguage = column[String]("query_language")
+    def sqlQuery = column[String]("sql_query", O.SqlType("CLOB"))
+    def dataSource = column[Option[Long]]("dataSource")
+    def id = column[Long]("id", O.PrimaryKey)
+
+    def idFk = foreignKey("jiquery_id_fk", id, resources)(_.id)
+    def dataSourceFk = foreignKey("jiquery_datasource_fk", dataSource, resources)(_.id.?)
+
+    def * : ProvenShape[JIQuery] = (queryLanguage, sqlQuery, dataSource, id).mapTo[JIQuery]
+  }
+
 
   def selectQueryResourceModel(path: String): Future[QueryResource] = selectQueryResourceModel(Left(path))
 

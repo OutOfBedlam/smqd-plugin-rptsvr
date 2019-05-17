@@ -15,39 +15,27 @@
 
 package com.thing2x.rptsvr.repo.db
 
-import slick.jdbc.JdbcProfile
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
-object DBSchema {
+trait DBSchema extends JIResourceFolderSupport
+  with JIResourceSupport
+  with JIFileResourceSupport
+  with JIDataSourceSupport
+  with JIInputControlSupport
+  with JIInputControlQueryColumnSupport
+  with JIQuerySupport
+  with JIDataTypeSupport
+  with JIListOfValuesSupport
+  with JIReportUnitSupport
+  with JIReportUnitInputControlSupport
+  with JIReportUnitResourceSupport { mySelf: DBRepository =>
 
-  private[db] var profile0: JdbcProfile = _
-  val profile: JdbcProfile = slick.jdbc.H2Profile
-
-  import profile.api._
-  
-  val resources = TableQuery[JIResourceTable]
-
-  val resourceFolders = TableQuery[JIResourceFolderTable]
-
-  val fileResources = TableQuery[JIFileResourceTable]
-  val jdbcResources = TableQuery[JIJdbcDatasourceTable]
-  val queryResources = TableQuery[JIQueryTable]
-
-  val reportUnits = TableQuery[JIReportUnitTable]
-
-  val reportUnitResources = TableQuery[JIReportUnitResourceTable]
-  val reportUnitInputControls = TableQuery[JIReportUnitInputControlTable]
-
-  val dataTypes = TableQuery[JIDataTypeTable]
-  val inputControls = TableQuery[JIInputControlTable]
-  val inputControlQueryColumns = TableQuery[JIInputControlQueryColumnTable]
-  val listOfValues = TableQuery[JIListOfValuesTable]
+  import dbContext.profile.api._
 
   def createSchema(ctx: DBRepositoryContext): Unit = {
-
     val schema = Seq(
       resourceFolders.schema,
       resources.schema,

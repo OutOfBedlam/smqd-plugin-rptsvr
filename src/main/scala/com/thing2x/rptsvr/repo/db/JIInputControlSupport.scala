@@ -16,12 +16,9 @@
 package com.thing2x.rptsvr.repo.db
 
 import com.thing2x.rptsvr.InputControlResource
-import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
-
-import DBSchema.profile.api._
 
 // create table JIInputControl (
 //        id number(19,0) not null,
@@ -47,28 +44,30 @@ final case class JIInputControl( controlType: Int,
                                  visible: Boolean,
                                  id: Long = 0L)
 
-final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, "JIInputControl") {
-  def controlType = column[Int]("type")
-  def dataType = column[Option[Long]]("data_type")
-  def listOfValues = column[Option[Long]]("list_of_values")
-  def listQuery = column[Option[Long]]("list_query")
-  def queryValueColumn = column[Option[String]]("query_value_column")
-  def defaultValue = column[Option[Array[Byte]]]("defaultValue")
-  def mandatory = column[Boolean]("mandatory")
-  def readOnly = column[Boolean]("readOnly")
-  def visible = column[Boolean]("visible")
-
-  def id = column[Long]("id", O.PrimaryKey)
-
-  def idFk = foreignKey("JIInputControl_id_fk", id, resources)(_.id)
-  def dataTypeFk = foreignKey("JIInputControl_data_type_fk", dataType, dataTypes)(_.id.?)
-  def listOfValuesFk = foreignKey("JIInputControl_list_of_values_fk", listOfValues, DBSchema.listOfValues)(_.id.?)
-  def listQueryFk = foreignKey("JIInputControl_list_query_fk", listQuery, queryResources)(_.id.?)
-
-  def * : ProvenShape[JIInputControl] = (controlType, dataType, listOfValues, listQuery, queryValueColumn, defaultValue, mandatory, readOnly, visible, id).mapTo[JIInputControl]
-}
-
 trait JIInputControlSupport { mySelf: DBRepository =>
+  import dbContext.profile.api._
+
+  final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, "JIInputControl") {
+    def controlType = column[Int]("type")
+    def dataType = column[Option[Long]]("data_type")
+    def listOfValues = column[Option[Long]]("list_of_values")
+    def listQuery = column[Option[Long]]("list_query")
+    def queryValueColumn = column[Option[String]]("query_value_column")
+    def defaultValue = column[Option[Array[Byte]]]("defaultValue")
+    def mandatory = column[Boolean]("mandatory")
+    def readOnly = column[Boolean]("readOnly")
+    def visible = column[Boolean]("visible")
+
+    def id = column[Long]("id", O.PrimaryKey)
+
+    def idFk = foreignKey("JIInputControl_id_fk", id, resources)(_.id)
+    def dataTypeFk = foreignKey("JIInputControl_data_type_fk", dataType, dataTypes)(_.id.?)
+    def listOfValuesFk = foreignKey("JIInputControl_list_of_values_fk", listOfValues, mySelf.listOfValues)(_.id.?)
+    def listQueryFk = foreignKey("JIInputControl_list_query_fk", listQuery, queryResources)(_.id.?)
+
+    def * : ProvenShape[JIInputControl] = (controlType, dataType, listOfValues, listQuery, queryValueColumn, defaultValue, mandatory, readOnly, visible, id).mapTo[JIInputControl]
+  }
+
 
   def selectInputControlModel(path: String): Future[InputControlResource] = selectInputControlModel(Left(path))
 

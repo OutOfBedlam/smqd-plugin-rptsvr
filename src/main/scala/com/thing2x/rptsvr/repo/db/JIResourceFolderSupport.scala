@@ -18,11 +18,8 @@ package com.thing2x.rptsvr.repo.db
 import java.sql.Date
 
 import com.thing2x.rptsvr.FolderResource
-import com.thing2x.rptsvr.repo.db.DBSchema._
 
 import scala.concurrent.Future
-
-import DBSchema.profile.api._
 
 //    create table JIResourceFolder (
 //        id number(19,0) not null,
@@ -49,24 +46,25 @@ final case class JIResourceFolder( uri: String,
                                    version: Int = -1,
                                    id: Long = 0L)
 
-
-final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIResourceFolder") {
-  def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-  def version = column[Int]("version")
-  def uri = column[String]("uri", O.Unique)
-  def hidden = column[Boolean]("hidden", O.Default(false))
-  def name = column[String]("name")
-  def label = column[String]("label")
-  def description = column[Option[String]]("description")
-  def parentFolder = column[Long]("parent_folder")
-  def creationDate = column[Date]("creation_date")
-  def updateDate = column[Date]("update_date")
-
-  def * = (uri, name, label, description, parentFolder, hidden, creationDate, updateDate, version, id).mapTo[JIResourceFolder]
-}
-
-
 trait JIResourceFolderSupport { mySelf: DBRepository =>
+
+  import dbContext.profile.api._
+
+  final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIResourceFolder") {
+    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+    def version = column[Int]("version")
+    def uri = column[String]("uri", O.Unique)
+    def hidden = column[Boolean]("hidden", O.Default(false))
+    def name = column[String]("name")
+    def label = column[String]("label")
+    def description = column[Option[String]]("description")
+    def parentFolder = column[Long]("parent_folder")
+    def creationDate = column[Date]("creation_date")
+    def updateDate = column[Date]("update_date")
+
+    def * = (uri, name, label, description, parentFolder, hidden, creationDate, updateDate, version, id).mapTo[JIResourceFolder]
+  }
+
 
   def selectResourceFolderModel(path: String): Future[FolderResource] = selectResourceFolderModel(Left(path))
 

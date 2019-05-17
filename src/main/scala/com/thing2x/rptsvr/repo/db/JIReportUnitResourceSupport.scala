@@ -16,12 +16,10 @@
 package com.thing2x.rptsvr.repo.db
 
 import com.thing2x.rptsvr.FileResource
-import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
 
-import DBSchema.profile.api._
 
 //    create table JIReportUnitResource (
 //        report_unit_id number(19,0) not null,
@@ -33,20 +31,22 @@ final case class JIReportUnitResource ( reportUnitId: Long,
                                         resourceId: Long,
                                         resourceIndex: Int)
 
-final class JIReportUnitResourceTable(tag: Tag) extends Table[JIReportUnitResource](tag, "JIReportUnitResource") {
-  def reportUnitId = column[Long]("report_unit_id")
-  def resourceId = column[Long]("resource_id")
-  def resourceIndex = column[Int]("resource_index")
-
-  def pk = primaryKey("JIReportUnitResource_pk", (reportUnitId, resourceIndex))
-
-  def reportUnitIdFk = foreignKey("JIReportUnitResource_reportUnitId_fk", reportUnitId, reportUnits)(_.id)
-  def resourceIdFk = foreignKey("JIReportUnitResource_resourceId_fk", resourceId, fileResources)(_.id)
-
-  def * : ProvenShape[JIReportUnitResource] = (reportUnitId, resourceId, resourceIndex).mapTo[JIReportUnitResource]
-}
 
 trait JIReportUnitResourceSupport { mySelf: DBRepository =>
+  import dbContext.profile.api._
+
+  final class JIReportUnitResourceTable(tag: Tag) extends Table[JIReportUnitResource](tag, "JIReportUnitResource") {
+    def reportUnitId = column[Long]("report_unit_id")
+    def resourceId = column[Long]("resource_id")
+    def resourceIndex = column[Int]("resource_index")
+
+    def pk = primaryKey("JIReportUnitResource_pk", (reportUnitId, resourceIndex))
+
+    def reportUnitIdFk = foreignKey("JIReportUnitResource_reportUnitId_fk", reportUnitId, reportUnits)(_.id)
+    def resourceIdFk = foreignKey("JIReportUnitResource_resourceId_fk", resourceId, fileResources)(_.id)
+
+    def * : ProvenShape[JIReportUnitResource] = (reportUnitId, resourceId, resourceIndex).mapTo[JIReportUnitResource]
+  }
 
   def selectReportUnitResourceModel(reportUnitId: Long): Future[Seq[FileResource]] = {
     for {

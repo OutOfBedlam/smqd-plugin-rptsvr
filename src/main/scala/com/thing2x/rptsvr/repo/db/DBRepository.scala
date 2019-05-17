@@ -16,26 +16,17 @@
 package com.thing2x.rptsvr.repo.db
 
 import com.thing2x.rptsvr.Repository.ResourceNotFoundException
-import com.thing2x.rptsvr.{DataSourceResource, FileContent, FileResource, FolderResource, ListResult, QueryResource, ReportUnitResource, Repository, RepositoryContext, Resource, Result}
+import com.thing2x.rptsvr._
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import slick.lifted.TableQuery
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(name, smqd, config) with Repository with StrictLogging
-  with JIResourceFolderSupport
-  with JIResourceSupport
-  with JIFileResourceSupport
-  with JIDataSourceSupport
-  with JIInputControlSupport
-  with JIQuerySupport
-  with JIDataTypeSupport
-  with JIListOfValuesSupport
-  with JIReportUnitSupport
-  with JIReportUnitInputControlSupport
-  with JIReportUnitResourceSupport {
+class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(name, smqd, config)
+  with Repository with DBSchema with StrictLogging {
 
   protected implicit val dbContext: DBRepositoryContext =
     new DBRepositoryContext(this, smqd, config)
@@ -44,13 +35,31 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
 
   protected implicit val ec: ExecutionContext = context.executionContext
 
+  val resources = TableQuery[JIResourceTable]
+
+  val resourceFolders = TableQuery[JIResourceFolderTable]
+
+  val fileResources = TableQuery[JIFileResourceTable]
+  val jdbcResources = TableQuery[JIJdbcDatasourceTable]
+  val queryResources = TableQuery[JIQueryTable]
+
+  val reportUnits = TableQuery[JIReportUnitTable]
+
+  val reportUnitResources = TableQuery[JIReportUnitResourceTable]
+  val reportUnitInputControls = TableQuery[JIReportUnitInputControlTable]
+
+  val dataTypes = TableQuery[JIDataTypeTable]
+  val inputControls = TableQuery[JIInputControlTable]
+  val inputControlQueryColumns = TableQuery[JIInputControlQueryColumnTable]
+  val listOfValues = TableQuery[JIListOfValuesTable]
+
   override def start(): Unit = {
     dbContext.open() {
       logger.info("Deferred actions")
     }
 
     if (!dbContext.readOnly)
-      DBSchema.createSchema(dbContext)
+      createSchema(dbContext)
   }
 
   override def stop(): Unit = {

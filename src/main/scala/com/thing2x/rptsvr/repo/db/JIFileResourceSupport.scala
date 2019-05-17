@@ -20,13 +20,10 @@ import java.util.Base64
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.thing2x.rptsvr.api.MimeTypes
-import com.thing2x.rptsvr.repo.db.DBSchema._
 import com.thing2x.rptsvr.{FileContent, FileResource}
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
-
-import DBSchema.profile.api._
 
 //    create table JIFileResource (
 //        id number(19,0) not null,
@@ -40,18 +37,19 @@ final case class JIFileResource( fileType: String,
                                  reference: Option[Long],
                                  id: Long = 0L)
 
-final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, "JIFileResource") {
-  def fileType    = column[String]("file_type")
-  def data   = column[Array[Byte]]("data", O.SqlType("BLOB"))
-  def reference    = column[Long]("reference")
-  def id           = column[Long]("id", O.PrimaryKey)
-
-  def idFk = foreignKey("fileresource_id_fk", id, resources)(_.id)
-
-  def * : ProvenShape[JIFileResource] = (fileType, data.?, reference.?, id) <> (JIFileResource.tupled, JIFileResource.unapply)
-}
-
 trait JIFileResourceSupport { mySelf: DBRepository =>
+  import dbContext.profile.api._
+
+  final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, "JIFileResource") {
+    def fileType    = column[String]("file_type")
+    def data   = column[Array[Byte]]("data", O.SqlType("BLOB"))
+    def reference    = column[Long]("reference")
+    def id           = column[Long]("id", O.PrimaryKey)
+
+    def idFk = foreignKey("fileresource_id_fk", id, resources)(_.id)
+
+    def * : ProvenShape[JIFileResource] = (fileType, data.?, reference.?, id) <> (JIFileResource.tupled, JIFileResource.unapply)
+  }
 
   def selectFileResourceModelList(ids: Seq[Long]): Future[Seq[FileResource]] = {
     Future.sequence( ids.map( id => selectFileResourceModel(id)) )

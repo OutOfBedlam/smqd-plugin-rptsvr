@@ -18,12 +18,9 @@ package com.thing2x.rptsvr.repo.db
 import java.util.Base64
 
 import com.thing2x.rptsvr.DataTypeResource
-import com.thing2x.rptsvr.repo.db.DBSchema._
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
-
-import DBSchema.profile.api._
 
 //    create table JIDataType (
 //        id number(19,0) not null,
@@ -47,21 +44,22 @@ final case class JIDataType( dataType: Int,
                              strictMax: Boolean,
                              id: Long = 0L)
 
-final class JIDataTypeTable(tag: Tag) extends Table[JIDataType](tag, "JIDataType") {
-  def dataType = column[Int]("type")
-  def maxLength = column[Int]("maxLength")
-  def decimals = column[Int]("decimals")
-  def regularExpr = column[String]("regularExpr")
-  def minValue = column[Array[Byte]]("minValue")
-  def maxValue = column[Array[Byte]]("max_value")
-  def strictMin = column[Boolean]("strictMin")
-  def strictMax = column[Boolean]("strictMax")
-  def id = column[Long]("id", O.PrimaryKey)
-
-  def * : ProvenShape[JIDataType] = (dataType, maxLength.?, decimals.?, regularExpr.?, minValue.?, maxValue.?, strictMin, strictMax, id)<>( JIDataType.tupled, JIDataType.unapply )
-}
-
 trait JIDataTypeSupport { mySelf: DBRepository =>
+  import dbContext.profile.api._
+
+  final class JIDataTypeTable(tag: Tag) extends Table[JIDataType](tag, "JIDataType") {
+    def dataType = column[Int]("type")
+    def maxLength = column[Int]("maxLength")
+    def decimals = column[Int]("decimals")
+    def regularExpr = column[String]("regularExpr")
+    def minValue = column[Array[Byte]]("minValue")
+    def maxValue = column[Array[Byte]]("max_value")
+    def strictMin = column[Boolean]("strictMin")
+    def strictMax = column[Boolean]("strictMax")
+    def id = column[Long]("id", O.PrimaryKey)
+
+    def * : ProvenShape[JIDataType] = (dataType, maxLength.?, decimals.?, regularExpr.?, minValue.?, maxValue.?, strictMin, strictMax, id)<>( JIDataType.tupled, JIDataType.unapply )
+  }
 
   def selectDataTypeModel(path: String): Future[DataTypeResource] = selectDataTypeModel(Left(path))
 

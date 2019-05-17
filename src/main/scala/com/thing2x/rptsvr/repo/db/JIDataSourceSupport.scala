@@ -15,13 +15,10 @@
 
 package com.thing2x.rptsvr.repo.db
 
-import com.thing2x.rptsvr.repo.db.DBSchema._
 import com.thing2x.rptsvr.{DataSourceResource, JdbcDataSourceResource}
 import slick.lifted.ProvenShape
 
 import scala.concurrent.Future
-
-import DBSchema.profile.api._
 
 // create table JIJdbcDatasource (
 //        id number(19,0) not null,
@@ -39,21 +36,22 @@ final case class JIJdbcDatasource( driver: String,
                                    timezone: Option[String],
                                    id: Long = 0L)
 
-final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag, "JIJdbcDatasource") {
-  def driver = column[String]("driver")
-  def connectionUrl = column[Option[String]]("connectionUrl")
-  def username = column[Option[String]]("username")
-  def password = column[Option[String]]("password")
-  def timezone = column[Option[String]]("timezone")
-  def id = column[Long]("id", O.PrimaryKey)
-
-  def idFk = foreignKey("jdbcdtatsource_id_fk", id, resources)(_.id)
-
-  def * : ProvenShape[JIJdbcDatasource] = (driver, connectionUrl, username, password, timezone, id).mapTo[JIJdbcDatasource]
-}
-
-
 trait JIDataSourceSupport { myself: DBRepository =>
+  import dbContext.profile.api._
+
+
+  final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag, "JIJdbcDatasource") {
+    def driver = column[String]("driver")
+    def connectionUrl = column[Option[String]]("connectionUrl")
+    def username = column[Option[String]]("username")
+    def password = column[Option[String]]("password")
+    def timezone = column[Option[String]]("timezone")
+    def id = column[Long]("id", O.PrimaryKey)
+
+    def idFk = foreignKey("jdbcdtatsource_id_fk", id, resources)(_.id)
+
+    def * : ProvenShape[JIJdbcDatasource] = (driver, connectionUrl, username, password, timezone, id).mapTo[JIJdbcDatasource]
+  }
 
   def selectDataSourceModel(path: String): Future[DataSourceResource] = selectDataSourceModel(Left(path))
 

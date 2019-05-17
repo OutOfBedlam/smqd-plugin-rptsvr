@@ -17,11 +17,8 @@ package com.thing2x.rptsvr.repo.db
 import java.sql.Date
 
 import com.thing2x.rptsvr.Resource
-import com.thing2x.rptsvr.repo.db.DBSchema._
 
 import scala.concurrent.Future
-
-import DBSchema.profile.api._
 
 //     create table JIResource (
 //        id number(19,0) not null,
@@ -48,25 +45,26 @@ final case class JIResource( name: String,
                              version: Int = -1,
                              id: Long = 0L)
 
-final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource") {
-  def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-  def version = column[Int]("version")
-  def name = column[String]("name")
-  def parentFolder = column[Long]("parent_folder")
-  def childrenFolder = column[Option[Long]]("childrenFolder")
-  def label = column[String]("label")
-  def description = column[Option[String]]("description")
-  def resourceType = column[String]("resourceType")
-  def creationDate = column[Date]("creation_date")
-  def updateDate = column[Date]("update_date")
-
-  def parentFolderFk = foreignKey("resource_parent_folder_fk", parentFolder, resourceFolders)(_.id)
-
-  def * = (name, parentFolder, childrenFolder, label, description, resourceType, creationDate, updateDate, version, id).mapTo[JIResource]
-}
-
-
 trait JIResourceSupport { mySelf: DBRepository =>
+
+  import dbContext.profile.api._
+
+  final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIResource") {
+    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+    def version = column[Int]("version")
+    def name = column[String]("name")
+    def parentFolder = column[Long]("parent_folder")
+    def childrenFolder = column[Option[Long]]("childrenFolder")
+    def label = column[String]("label")
+    def description = column[Option[String]]("description")
+    def resourceType = column[String]("resourceType")
+    def creationDate = column[Date]("creation_date")
+    def updateDate = column[Date]("update_date")
+
+    def parentFolderFk = foreignKey("resource_parent_folder_fk", parentFolder, resourceFolders)(_.id)
+
+    def * = (name, parentFolder, childrenFolder, label, description, resourceType, creationDate, updateDate, version, id).mapTo[JIResource]
+  }
 
   def selectResourceModel(path: String): Future[Resource] = selectResourceModel(Left(path))
 
