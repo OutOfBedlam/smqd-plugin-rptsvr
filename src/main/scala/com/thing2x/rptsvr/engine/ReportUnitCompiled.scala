@@ -18,6 +18,6 @@ package com.thing2x.rptsvr.engine
 import com.thing2x.rptsvr.DataSourceResource
 import net.sf.jasperreports.engine.JasperReport
 
-private[engine] case class ReportUnitCompiled(jsReport: JasperReport, resources: Map[String, Array[Byte]], dataSource: Option[DataSourceResource]) {
+private[engine] case class ReportUnitCompiled(jsReport: JasperReport, resources: Map[String, Any], dataSource: Option[DataSourceResource]) {
 
 }

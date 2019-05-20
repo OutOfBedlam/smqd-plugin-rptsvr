@@ -18,10 +18,11 @@ package com.thing2x.rptsvr.engine
 import java.io.{ByteArrayInputStream, InputStream, OutputStream}
 
 import com.thing2x.rptsvr.{Repository => BackendRepo}
-import net.sf.jasperreports.engine.JasperReportsContext
+import com.typesafe.scalalogging.StrictLogging
+import net.sf.jasperreports.engine.{JasperReport, JasperReportsContext}
 import net.sf.jasperreports.repo._
 
-class EngineRepositoryService(jsContext: JasperReportsContext, backend: BackendRepo) extends StreamRepositoryService {
+class EngineRepositoryService(jsContext: JasperReportsContext, backend: BackendRepo) extends StreamRepositoryService with StrictLogging {
   override def getInputStream(uri: String): InputStream = ???
 
   override def getOutputStream(uri: String): OutputStream = ???
@@ -33,18 +34,25 @@ class EngineRepositoryService(jsContext: JasperReportsContext, backend: BackendR
   override def getResource[K <: Resource](uri: String, resourceType: Class[K]): K = {
     val repositoryContext = SimpleRepositoryContext.of(jsContext)
     val persistenceService = PersistenceUtil.getInstance(jsContext).getService(classOf[EngineRepositoryService], resourceType)
-    if (persistenceService != null)
-    {
-      //println(s"********************** $uri")
-      val buff = repositoryContext.getJasperReportsContext.getValue(uri).asInstanceOf[Array[Byte]]
-      val is = new ByteArrayInputStream(buff)
-      if (is != null) {
-        val isr = new InputStreamResource
-        isr.setInputStream(is)
-        return isr.asInstanceOf[K]
+    if (persistenceService != null) {
+      logger.trace(s"getResource $uri, resourceType: ${resourceType.getName}")
+      repositoryContext.getJasperReportsContext.getValue(uri) match {
+        case jr: JasperReport =>
+          val rr = new ReportResource()
+          rr.setReport(jr)
+          rr.asInstanceOf[K]
+        case buff: Array[Byte] =>
+          val is = new ByteArrayInputStream(buff)
+          val isr = new InputStreamResource
+          isr.setInputStream(is)
+          isr.asInstanceOf[K]
+        case x =>
+          logger.error(s"Unhandled resource type: $x")
+          null.asInstanceOf[K]
       }
     }
-
-    null.asInstanceOf[K]
+    else {
+      null.asInstanceOf[K]
+    }
   }
 }

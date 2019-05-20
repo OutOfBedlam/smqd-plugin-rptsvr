@@ -100,13 +100,18 @@ trait JIReportUnitSupport { mySelf: DBRepository =>
           case Some(dsId) => selectDataSourceModel(dsId).map( Some(_) )
           case None => Future( None )
         }
-      } yield (jrxml, ds, reportUnitResources, reportUnitInputControls)
-      x.map{ case (jrxml, ds, rurs, ruic) =>
+        query                   <- reportUnit.query match {
+          case Some(queryId) => selectQueryResourceModel(queryId).map( Some(_) )
+          case None => Future( None )
+        }
+      } yield (jrxml, ds, reportUnitResources, reportUnitInputControls, query)
+      x.map{ case (jrxml, ds, rurs, ruic, query) =>
         val fr = ReportUnitResource(s"${folder.uri}/${resource.name}", resource.label)
         fr.resources = rurs.map(r => (r.label, r)).toMap
         fr.inputControls = ruic
         fr.jrxml = jrxml
         fr.dataSource = ds
+        fr.query = query
         fr.creationDate = resource.creationDate
         fr.updateDate = resource.updateDate
         fr.description = resource.description

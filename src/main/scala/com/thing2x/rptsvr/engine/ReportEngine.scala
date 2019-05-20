@@ -15,6 +15,7 @@
 
 package com.thing2x.rptsvr.engine
 
+import java.io.ByteArrayInputStream
 import java.sql.{Connection, Driver}
 import java.util.Properties
 
@@ -29,6 +30,7 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jasperreports.engine._
 import net.sf.jasperreports.engine.fonts.FontFamily
+import net.sf.jasperreports.engine.query.QueryExecuterFactory
 import net.sf.jasperreports.extensions.ExtensionsEnvironment
 
 import scala.collection.JavaConverters._
@@ -108,9 +110,12 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
     config.getDuration("cache.resource.ttl").toMillis.millis)
 
   override def start(): Unit = {
-    val fontFamilies = ExtensionsEnvironment.getExtensionsRegistry.getExtensions(classOf[FontFamily]).asScala
-    fontFamilies.foreach { fm =>
+    ExtensionsEnvironment.getExtensionsRegistry.getExtensions(classOf[FontFamily]).asScala.foreach { fm =>
       logger.info(s"** Font '${fm.getName}' pdfEncoding='${fm.getPdfEncoding}' isPdfEmbedded=${fm.isPdfEmbedded}")
+    }
+
+    ExtensionsEnvironment.getExtensionsRegistry.getExtensions(classOf[QueryExecuterFactory]).asScala.foreach { eq =>
+      logger.info(s"== QueryExecuter '${eq.getBuiltinParameters.toString}'")
     }
   }
 
@@ -144,11 +149,17 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
         }
 
         // get resource files as Map[name, InputStream]
-        val resources: Future[Map[String, Array[Byte]]] = Future.sequence(
+        val resources: Future[Map[String, Any]] = Future.sequence(
           ru.resources map { case (resourceName, resource) =>
+            logger.trace(s"load report resource: $resourceName ${resource.resourceType} ${resource.fileType}")
             if (useResourceCache) {
               val f = resourceCache.fromFuture(resource.uri, resource.updateDate.map(_.getTime)){ loadResource(resource.uri) }
-              f.map( (resourceName, _) )
+              f.map{ rsc =>
+                val result =
+                  if (resource.fileType == "jrxml") compileJrxml(rsc, report.jsContext) // sub-report
+                  else rsc // other resource (i.e images)
+                (resourceName, result)
+              }
             }
             else {
               loadResource(resource.uri).map( (resourceName, _) )
@@ -173,6 +184,13 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
       case Left(ex) =>
         Future.failed(ex)
     }.flatten
+  }
+
+  def compileJrxml(buff: Array[Byte], jsContext: JasperReportsContext): JasperReport = {
+    val in = new ByteArrayInputStream(buff)
+    val compiler = JasperCompileManager.getInstance(jsContext)
+    val report = compiler.compile(in)
+    report
   }
 
   def compileJrxml(jrxmlUri: String, jsContext: JasperReportsContext): Future[JasperReport] = {
@@ -214,9 +232,10 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
     dsResource match {
       // TODO: create JR DataSource instance
       //Some(new JREmptyDataSource)
-
       // for now, we are supporting only jdbc datasource
-      case _ => None
+      case _ =>
+        //logger.info(s"Not Impl. ============+> ${dsResource}")
+        None
     }
   }
 }
