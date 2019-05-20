@@ -10,10 +10,8 @@ object Dependencies {
   }
 
   val smqd: Seq[ModuleID] = Seq(
-    ////// if snapshot version
-    "com.thing2x" %% "smqd-core" % "0.4.13-SNAPSHOT" changing() withSources(),
-    ////// else
-    //"com.thing2x" %% "smqd-core" % "0.4.12" withSources(),
+    "com.thing2x" %% "smqd-core" % "0.4.12" % Provided,
+    "org.slf4j" % "log4j-over-slf4j" % "1.7.7" % Test,
   )
 
   val fonts: Seq[ModuleID] = Seq(

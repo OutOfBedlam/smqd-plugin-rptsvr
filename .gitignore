@@ -15,3 +15,5 @@ src/test/conf/*-dev.conf
 # macOS
 .DS_Store
 **/.DS_Store
+
+src/test/scala/com/thing2x/rptsvr/api/Embedded*Test.scala
