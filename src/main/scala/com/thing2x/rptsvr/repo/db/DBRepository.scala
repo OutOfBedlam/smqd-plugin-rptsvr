@@ -56,6 +56,8 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
   val listOfValues = TableQuery[JIListOfValuesTable]
 
   private[db] val (e_cipher, d_cipher) = {
+    // !!! cipher refer to :
+    // https://github.com/pharsfalvi/jasper-cypher-filter-plugin/blob/master/src/main/java/org/gembaboo/maven/jasper/Cipherer.java
     val keyBytesHex = config.getString("cipher.secret_key")
     val ivBytesHex = config.getString("cipher.initvector")
     val algorithm = config.getString("cipher.algorithm")
