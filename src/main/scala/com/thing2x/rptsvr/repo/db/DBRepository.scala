@@ -21,6 +21,8 @@ import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import javax.crypto.Cipher
+import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
 import slick.lifted.TableQuery
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,6 +55,28 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
   val inputControlQueryColumns = TableQuery[JIInputControlQueryColumnTable]
   val listOfValues = TableQuery[JIListOfValuesTable]
 
+  private[db] val (e_cipher, d_cipher) = {
+    val keyBytesHex = config.getString("cipher.secret_key")
+    val ivBytesHex = config.getString("cipher.initvector")
+    val algorithm = config.getString("cipher.algorithm")
+    val transformation = config.getString("cipher.transformation")
+    val keyBytes = keyBytesHex.split(" ").toSeq.map { tok =>
+      val hex = tok.substring(2)
+      Integer.parseInt(hex, 16).toByte
+    }.toArray
+    val ivBytes = ivBytesHex.split(" ").toSeq.map { tok =>
+      val hex = tok.substring(2)
+      Integer.parseInt(hex, 16).toByte
+    }.toArray
+    val key = new SecretKeySpec(keyBytes, algorithm)
+    val iv  = new IvParameterSpec(ivBytes)
+    val d = Cipher.getInstance(transformation)
+    val e = Cipher.getInstance(transformation)
+    d.init(Cipher.DECRYPT_MODE, key, iv)
+    e.init(Cipher.ENCRYPT_MODE, key, iv)
+    (e, d)
+  }
+
   override def start(): Unit = {
     dbContext.open() {
       logger.info("Deferred actions")
@@ -64,6 +88,17 @@ class DBRepository(name: String, smqd: Smqd, config: Config) extends Service(nam
 
   override def stop(): Unit = {
     dbContext.close()
+  }
+
+  private[db] def decode(content: String): String = {
+    val enc = dehexify(content)
+    val passPlainText = new String(d_cipher.doFinal(enc), "UTF-8")
+    passPlainText
+  }
+
+  private[db] def encode(content: String): String = {
+    val enc = e_cipher.doFinal(content.getBytes("UTF-8"))
+    hexify(enc)
   }
 
   private[db] def splitPath(path: String): (String, String) = {

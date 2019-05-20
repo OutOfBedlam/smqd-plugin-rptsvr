@@ -41,4 +41,26 @@ trait Repository {
   def getContent(path: String): Future[Either[Throwable, FileContent]]
 
   def deleteResource(path: String): Future[Boolean]
+
+  private val hexChars: Array[Char] = Array( '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' )
+
+  protected def hexify(data: Array[Byte]): String = {
+    val sb = StringBuilder.newBuilder
+
+    data.foreach { ch =>
+      val highBits = (ch.toInt & 0x000000F0) >> 4
+      val lowBits = ch.toInt & 0x0000000F
+      sb.append(hexChars(highBits)).append(hexChars(lowBits))
+    }
+
+    sb.toString
+  }
+
+  protected def dehexify(data: String): Array[Byte] = {
+    val bytes = new Array[Byte](data.length/2)
+    data.grouped(2).zipWithIndex.foreach { case(ch, idx) =>
+      bytes(idx) = Integer.parseInt(ch, 16).toByte
+    }
+    bytes
+  }
 }

@@ -22,15 +22,11 @@ import akka.http.scaladsl.model.{ContentType, ContentTypes, HttpCharsets, MediaT
 import akka.stream.Materializer
 import akka.stream.scaladsl.StreamConverters
 import akka.util.ByteString
-import com.thing2x.rptsvr.engine.ReportEngine._
 import com.thing2x.rptsvr.{DataSourceResource, JdbcDataSourceResource, ReportUnitResource, Repository}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.crypto.Cipher
-import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
-import javax.xml.bind.DatatypeConverter
 import net.sf.jasperreports.engine._
 import net.sf.jasperreports.engine.fonts.FontFamily
 import net.sf.jasperreports.extensions.ExtensionsEnvironment
@@ -88,28 +84,6 @@ object ReportEngine {
       else ContentTypes.`application/octet-stream`
     }
   }
-
-  private val hexChars: Array[Char] = Array( '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' )
-
-  private def hexify(data: Array[Byte]): String = {
-    val sb = StringBuilder.newBuilder
-
-    data.foreach { ch =>
-      val highBits = (ch.toInt & 0x000000F0) >> 4
-      val lowBits = ch.toInt & 0x0000000F
-      sb.append(hexChars(highBits)).append(hexChars(lowBits))
-    }
-
-    sb.toString
-  }
-
-  private def dehexify(data: String): Array[Byte] = {
-    val bytes = new Array[Byte](data.length/2)
-    data.grouped(2).zipWithIndex.foreach { case(ch, idx) =>
-      bytes(idx) = Integer.parseInt(ch, 16).toByte
-    }
-    bytes
-  }
 }
 
 class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(name, smqd, config) with StrictLogging {
@@ -132,28 +106,6 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
     config.getInt("cache.resource.max"),
     config.getDouble("cache.resource.dropfraction"),
     config.getDuration("cache.resource.ttl").toMillis.millis)
-
-  private val (e_cipher, d_cipher) = {
-    val keyBytesHex = config.getString("cipher.secret_key")
-    val ivBytesHex = config.getString("cipher.initvector")
-    val algorithm = config.getString("cipher.algorithm")
-    val transformation = config.getString("cipher.transformation")
-    val keyBytes = keyBytesHex.split(" ").toSeq.map { tok =>
-      val hex = tok.substring(2)
-      Integer.parseInt(hex, 16).toByte
-    }.toArray
-    val ivBytes = ivBytesHex.split(" ").toSeq.map { tok =>
-      val hex = tok.substring(2)
-      Integer.parseInt(hex, 16).toByte
-    }.toArray
-    val key = new SecretKeySpec(keyBytes, algorithm)
-    val iv  = new IvParameterSpec(ivBytes)
-    val d = Cipher.getInstance(transformation)
-    val e = Cipher.getInstance(transformation)
-    d.init(Cipher.DECRYPT_MODE, key, iv)
-    e.init(Cipher.ENCRYPT_MODE, key, iv)
-    (e, d)
-  }
 
   override def start(): Unit = {
     val fontFamilies = ExtensionsEnvironment.getExtensionsRegistry.getExtensions(classOf[FontFamily]).asScala
@@ -248,12 +200,7 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
 
       val props = new Properties()
       if (ds.username.isDefined) props.setProperty("user", ds.username.get)
-      if (ds.password.isDefined){
-        val pass = ds.password.get
-        val enc = DatatypeConverter.parseHexBinary(pass)
-        val passPlainText = new String(d_cipher.doFinal(enc), "UTF-8")
-        props.setProperty("password", passPlainText)
-      }
+      if (ds.password.isDefined) props.setProperty("password", ds.password.get)
 
       val conn = driver.connect(ds.connectionUrl.get, props)
       Option(conn)
@@ -261,18 +208,6 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
     else {
       None
     }
-  }
-
-  private[engine] def decode(content: String): String = {
-    //val enc = DatatypeConverter.parseHexBinary(content)
-    val enc = dehexify(content)
-    val passPlainText = new String(d_cipher.doFinal(enc), "UTF-8")
-    passPlainText
-  }
-
-  private[engine] def encode(content: String): String = {
-    val enc = e_cipher.doFinal(content.getBytes("UTF-8"))
-    hexify(enc)
   }
 
   private[engine] def dataSource(dsResource: Option[DataSourceResource]): Future[Option[JRDataSource]] = Future{

@@ -1,11 +1,7 @@
 package com.thing2x.rptsvr.api
 
-import java.util.Base64
-
-import com.thing2x.rptsvr.engine.ReportEngine
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
 import javax.crypto.{Cipher, SecretKey}
-import javax.xml.bind.DatatypeConverter
 import org.scalatest.FlatSpec
 
 class JSPasswordDecTest extends FlatSpec {
@@ -17,8 +13,6 @@ class JSPasswordDecTest extends FlatSpec {
   val cipherTransformation = "DESede/CBC/PKCS5Padding"
 
   val message = "1879B779A25FDFF4"
-  //val message = "774FF601BAC2B606A6A123A3BBC7A060"
-  //val message = "C893BF265815FA49"
 
   def secretKeyBytes: Array[Byte] = {
     secretKey.split(" ").toSeq.map { tok =>
@@ -43,7 +37,6 @@ class JSPasswordDecTest extends FlatSpec {
   }
 
   def messageBytes: Array[Byte] = {
-    //DatatypeConverter.parseHexBinary(message)
     dehexify(message)
   }
 
@@ -53,7 +46,6 @@ class JSPasswordDecTest extends FlatSpec {
     val keyBytes = secretKeyBytes
     val ivBytes = initVectorBytes
     val valBytes = messageBytes
-    //val valBytes = Base64.getDecoder.decode(message)
 
     println(s"key len: ${keyBytes.length}  : ${valueOf(keyBytes)}")
     println(s"val len: ${valBytes.length}  : ${valueOf(valBytes)}")

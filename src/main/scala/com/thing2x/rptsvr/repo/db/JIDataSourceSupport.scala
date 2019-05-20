@@ -86,7 +86,7 @@ trait JIDataSourceSupport { myself: DBRepository =>
           fr.timezone = jdbc.timezone
           fr.driverClass = Some(jdbc.driver)
           fr.username = jdbc.username
-          fr.password = jdbc.password
+          fr.password = jdbc.password.map( decode )
           fr.connectionUrl = jdbc.connectionUrl
           fr.creationDate = resource.creationDate
           fr.updateDate = resource.updateDate
@@ -139,7 +139,12 @@ trait JIDataSourceSupport { myself: DBRepository =>
     for {
       parentFolderId <- selectResourceFolder(parentFolderPath).map( _.id )
       resourceId     <- insertResource( JIResource(name, parentFolderId, None, request.label, request.description, DBResourceTypes.jdbcDataSource, version = request.version + 1))
-      jdbcResourceId <- insertDataSource( JIJdbcDatasource(request.driverClass.get, request.connectionUrl, request.username, request.password, request.timezone, resourceId) )
+      jdbcResourceId <- insertDataSource( JIJdbcDatasource(request.driverClass.get,
+        request.connectionUrl,
+        request.username,
+        request.password.map( encode ),
+        request.timezone,
+        resourceId) )
     } yield jdbcResourceId
   }
 
