@@ -50,7 +50,7 @@ trait JIResourceFolderSupport { mySelf: DBRepository =>
 
   import dbContext.profile.api._
 
-  final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, "JIRESOURCEFOLDER") {
+  final class JIResourceFolderTable(tag: Tag) extends Table[JIResourceFolder](tag, dbContext.table("JIResourceFolder")) {
     def id = column[Long]("ID", O.PrimaryKey, O.AutoInc)
     def version = column[Int]("VERSION")
     def uri = column[String]("URI", O.Unique)

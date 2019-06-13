@@ -43,7 +43,7 @@ trait JIListOfValuesSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
 
-  final class JIListOfValuesTable(tag: Tag) extends Table[JIListOfValues](tag, "JILISTOFVALUES") {
+  final class JIListOfValuesTable(tag: Tag) extends Table[JIListOfValues](tag, dbContext.table("JIListOfValues")) {
     def id = column[Long]("ID", O.PrimaryKey)
 
     def idFk = foreignKey("JILISTOFVALUES_ID_FK", id, resources)(_.id)
@@ -51,7 +51,7 @@ trait JIListOfValuesSupport { mySelf: DBRepository =>
     def * : ProvenShape[JIListOfValues] = id.mapTo[JIListOfValues]
   }
 
-  final class JIListOfValueItemTable(tag: Tag) extends Table[JIListOfValuesItem](tag, "JILISTOFVALUESITEM") {
+  final class JIListOfValueItemTable(tag: Tag) extends Table[JIListOfValuesItem](tag, "JIListOfValuesItem") {
     def label = column[Option[String]]("LABEL")
     def value = column[Option[Array[Byte]]]("VALUE")
     def idx = column[Int]("IDX")

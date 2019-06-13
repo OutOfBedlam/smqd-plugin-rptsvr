@@ -35,7 +35,7 @@ final case class JIInputControlQueryColumn ( inputControlId: Long,
 trait JIInputControlQueryColumnSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIInputControlQueryColumnTable(tag: Tag) extends Table[JIInputControlQueryColumn](tag, "JIINPUTCONTROLQUERYCOLUMN") {
+  final class JIInputControlQueryColumnTable(tag: Tag) extends Table[JIInputControlQueryColumn](tag, dbContext.table("JIInputControlQueryColumn")) {
     def inputControlId = column[Long]("INPUT_CONTROL_ID")
     def queryColumn = column[String]("QUERY_COLUMN")
     def columnIndex = column[Int]("COLUMN_INDEX")

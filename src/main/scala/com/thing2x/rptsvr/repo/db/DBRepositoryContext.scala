@@ -31,12 +31,20 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Config) extends RepositoryContext with StrictLogging {
 
+  private var forceUpperCasesForTableName = false
+
   val profile: JdbcProfile =
   {
     config.getString("database.driver") match {
-      case "org.h2.Driver" => slick.jdbc.H2Profile
-      case "oracle.jdbc.OracleDriver" => slick.jdbc.OracleProfile
-      case "com.mysql.jdbc.Driver" => slick.jdbc.MySQLProfile
+      case "org.h2.Driver" =>
+        forceUpperCasesForTableName = true
+        slick.jdbc.H2Profile
+      case "oracle.jdbc.OracleDriver" =>
+        forceUpperCasesForTableName = true
+        slick.jdbc.OracleProfile
+      case "com.mysql.jdbc.Driver" =>
+        forceUpperCasesForTableName = false
+        slick.jdbc.MySQLProfile
     }
   }
 
@@ -71,4 +79,11 @@ class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Co
   private[db] def run[T](act: DBIO[T]): Future[T] = _database.run(act)
 
   private[db] def runSync[T](act: DBIO[T], timeout: Duration): T = Await.result(_database.run(act), timeout)
+
+  def table(tn: String): String = {
+    if (forceUpperCasesForTableName)
+      tn.toUpperCase
+    else
+      tn
+  }
 }

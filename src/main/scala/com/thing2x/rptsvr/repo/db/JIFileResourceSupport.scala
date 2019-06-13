@@ -40,7 +40,7 @@ final case class JIFileResource( fileType: String,
 trait JIFileResourceSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, "JIFILERESOURCE") {
+  final class JIFileResourceTable(tag: Tag) extends Table[JIFileResource](tag, dbContext.table("JIFileResource")) {
     def fileType    = column[String]("FILE_TYPE")
     def data   = column[Array[Byte]]("DATA", O.SqlType("BLOB"))
     def reference    = column[Long]("REFERENCE")

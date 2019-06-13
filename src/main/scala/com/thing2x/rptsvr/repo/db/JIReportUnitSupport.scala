@@ -48,7 +48,7 @@ trait JIReportUnitSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
 
-  final class JIReportUnitTable(tag: Tag) extends Table[JIReportUnit](tag, "JIREPORTUNIT") {
+  final class JIReportUnitTable(tag: Tag) extends Table[JIReportUnit](tag, dbContext.table("JIReportUnit")) {
     def reportDataSource = column[Option[Long]]("REPORTDATASOURCE")
     def query = column[Option[Long]]("QUERY")
     def mainReport = column[Option[Long]]("MAINREPORT")

@@ -40,7 +40,7 @@ trait JIDataSourceSupport { myself: DBRepository =>
   import dbContext.profile.api._
 
 
-  final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag, "JIJDBCDATASOURCE") {
+  final class JIJdbcDatasourceTable(tag: Tag) extends Table[JIJdbcDatasource](tag, dbContext.table("JIJdbcDatasource")) {
     def driver = column[String]("DRIVER")
     def connectionUrl = column[Option[String]]("CONNECTIONURL")
     def username = column[Option[String]]("USERNAME")

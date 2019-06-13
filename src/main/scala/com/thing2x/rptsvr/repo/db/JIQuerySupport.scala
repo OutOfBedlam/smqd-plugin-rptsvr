@@ -35,7 +35,7 @@ final case class JIQuery( queryLanguage: String,
 trait JIQuerySupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, "JIQUERY") {
+  final class JIQueryTable(tag: Tag) extends Table[JIQuery](tag, dbContext.table("JIQuery")) {
     def queryLanguage = column[String]("QUERY_LANGUAGE")
     def sqlQuery = column[String]("SQL_QUERY", O.SqlType("CLOB"))
     def dataSource = column[Option[Long]]("DATASOURCE")

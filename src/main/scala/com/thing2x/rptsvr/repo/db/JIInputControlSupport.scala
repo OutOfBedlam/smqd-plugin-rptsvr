@@ -47,7 +47,7 @@ final case class JIInputControl( controlType: Int,
 trait JIInputControlSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, "JIINPUTCONTROL") {
+  final class JIInputControlTable(tag: Tag) extends Table[JIInputControl](tag, dbContext.table("JIInputControl")) {
     def controlType = column[Int]("TYPE")
     def dataType = column[Option[Long]]("DATA_TYPE")
     def listOfValues = column[Option[Long]]("LIST_OF_VALUES")

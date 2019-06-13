@@ -49,7 +49,7 @@ trait JIResourceSupport { mySelf: DBRepository =>
 
   import dbContext.profile.api._
 
-  final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, "JIRESOURCE") {
+  final class JIResourceTable(tag: Tag) extends Table[JIResource](tag, dbContext.table("JIResource")) {
     def id = column[Long]("ID", O.PrimaryKey, O.AutoInc)
     def version = column[Int]("VERSION")
     def name = column[String]("NAME")

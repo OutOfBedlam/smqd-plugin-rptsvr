@@ -33,7 +33,7 @@ final case class JIReportUnitInputControl ( reportUnitId: Long,
 trait JIReportUnitInputControlSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIReportUnitInputControlTable(tag: Tag) extends Table[JIReportUnitInputControl](tag, "JIREPORTUNITINPUTCONTROL") {
+  final class JIReportUnitInputControlTable(tag: Tag) extends Table[JIReportUnitInputControl](tag, dbContext.table("JIReportUnitInputControl")) {
     def reportUnitId = column[Long]("REPORT_UNIT_ID")
     def inputControlId = column[Long]("INPUT_CONTROL_ID")
     def controlIndex = column[Int]("CONTROL_INDEX")

@@ -47,7 +47,7 @@ final case class JIDataType( dataType: Int,
 trait JIDataTypeSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIDataTypeTable(tag: Tag) extends Table[JIDataType](tag, "JIDATATYPE") {
+  final class JIDataTypeTable(tag: Tag) extends Table[JIDataType](tag, dbContext.table("JIDataType")) {
     def dataType = column[Int]("TYPE")
     def maxLength = column[Int]("MAXLENGTH")
     def decimals = column[Int]("DECIMALS")

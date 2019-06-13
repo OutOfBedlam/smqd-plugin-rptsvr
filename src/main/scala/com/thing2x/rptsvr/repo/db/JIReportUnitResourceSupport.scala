@@ -35,7 +35,7 @@ final case class JIReportUnitResource ( reportUnitId: Long,
 trait JIReportUnitResourceSupport { mySelf: DBRepository =>
   import dbContext.profile.api._
 
-  final class JIReportUnitResourceTable(tag: Tag) extends Table[JIReportUnitResource](tag, "JIREPORTUNITRESOURCE") {
+  final class JIReportUnitResourceTable(tag: Tag) extends Table[JIReportUnitResource](tag, dbContext.table("JIReportUnitResource")) {
     def reportUnitId = column[Long]("REPORT_UNIT_ID")
     def resourceId = column[Long]("RESOURCE_ID")
     def resourceIndex = column[Int]("RESOURCE_INDEX")
