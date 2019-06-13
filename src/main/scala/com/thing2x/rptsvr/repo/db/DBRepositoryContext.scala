@@ -36,6 +36,7 @@ class DBRepositoryContext(val repository: Repository, val smqd: Smqd, config: Co
     config.getString("database.driver") match {
       case "org.h2.Driver" => slick.jdbc.H2Profile
       case "oracle.jdbc.OracleDriver" => slick.jdbc.OracleProfile
+      case "com.mysql.jdbc.Driver" => slick.jdbc.MySQLProfile
     }
   }
 
