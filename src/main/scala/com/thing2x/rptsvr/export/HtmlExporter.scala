@@ -15,14 +15,25 @@
 
 package com.thing2x.rptsvr.export
 
-import java.io.{ByteArrayOutputStream, File}
+import java.io.File
+import java.io.ByteArrayOutputStream
+import java.io.FileOutputStream
+import java.util.Base64
 
 import akka.util.ByteString
 import com.thing2x.rptsvr.engine.ReportExporter
+import com.typesafe.scalalogging.StrictLogging
 import net.sf.jasperreports.engine.{JasperPrint, JasperReportsContext, export => underlying}
-import net.sf.jasperreports.export.{SimpleExporterInput, SimpleHtmlExporterOutput}
+import net.sf.jasperreports.export.SimpleExporterInput
+import net.sf.jasperreports.engine.export.HtmlResourceHandler
+import net.sf.jasperreports.export.SimpleHtmlExporterOutput
+import net.sf.jasperreports.export.SimpleHtmlReportConfiguration
 
-class HtmlExporter(jsContext: JasperReportsContext) extends ReportExporter {
+import scala.collection.mutable
+
+class HtmlExporter(jsContext: JasperReportsContext) extends ReportExporter with StrictLogging {
+  private val images = mutable.Map.empty[String,String]
+
   override def exportReport(jasperPrint: JasperPrint): ByteString = {
     val baos = new ByteArrayOutputStream()
     val exporter = new underlying.HtmlExporter(jsContext)
@@ -36,7 +47,29 @@ class HtmlExporter(jsContext: JasperReportsContext) extends ReportExporter {
     val exporter = new underlying.HtmlExporter(jsContext)
     exporter.setExporterInput(new SimpleExporterInput(jasperPrint))
     exporter.setExporterOutput(new SimpleHtmlExporterOutput(destpath))
+
+    val reportExportConfiguration = new SimpleHtmlReportConfiguration
+
+    exporter.setConfiguration(reportExportConfiguration)
+
+    val outputStream = new ByteArrayOutputStream()
+    val simpleHtmlExporterOutput = new SimpleHtmlExporterOutput(outputStream)
+
+    simpleHtmlExporterOutput.setImageHandler(new HtmlResourceHandler() {
+      override def handleResource(id: String, data: Array[Byte]): Unit = {
+        images.put(id, "data:image/jpg;base64," + Base64.getEncoder.encodeToString(data))
+      }
+
+      override def getResourcePath(id: String): String = images.getOrElse(id, "")
+    })
+    exporter.setExporterOutput(simpleHtmlExporterOutput)
     exporter.exportReport()
-    new File(destpath)
+
+    val file = new File(destpath)
+    val fos = new FileOutputStream( file)
+    outputStream.writeTo(fos)
+    fos.close()
+
+    file
   }
 }
