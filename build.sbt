@@ -1,5 +1,5 @@
 
-val versionString = "0.1.1-SNAPSHOT"
+val versionString = "0.1.1"
 
 lazy val root = (project in file("."))
   .settings(
