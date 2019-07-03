@@ -40,7 +40,7 @@ class LruCache[K, V](val maxEntries: Int, val dropFraction: Double, val ttl: Dur
         //   if given timestamp is prior than enlist time
         //   or timestamp is not given
         entry.future
-      case None =>
+      case _ =>
         val fut = Future{ for ( r <- future ) yield r }.flatten
         store.setEntry(key, new StoreEntry(fut))
         if (!fut.isCompleted) {
