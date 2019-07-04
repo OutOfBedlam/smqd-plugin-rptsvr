@@ -41,13 +41,13 @@ class Report(engine: ReportEngine, val reportUnitUri: String)(implicit ec: Execu
     fill(parameters).map ( exporter.exportReport )
   }
 
-  def exportReportToFile(parameters: Map[String, Any], format: ExportFormat.Value, destFilename: String): Future[File] = {
-    val exporter = ReportExporter(jsContext, format)
+  def exportReportToFile(parameters: Map[String, Any], format: ExportFormat.Value, destFilename: String, option:Option[String]): Future[File] = {
+    val exporter = ReportExporter(jsContext, format, option)
     fill(parameters).map( exporter.exportReportToFile(_, destFilename))
   }
 
-  def exportReportToFileSync(parameters: Map[String, Any], format: ExportFormat.Value, destFilename: String)(implicit timeout: FiniteDuration): File = {
-    val future = exportReportToFile(parameters, format, destFilename)
+  def exportReportToFileSync(parameters: Map[String, Any], format: ExportFormat.Value, destFilename: String, option:Option[String] = None)(implicit timeout: FiniteDuration): File = {
+    val future = exportReportToFile(parameters, format, destFilename, option)
     Await.result(future, timeout)
   }
 

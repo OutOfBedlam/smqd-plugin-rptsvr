@@ -23,10 +23,10 @@ import com.thing2x.rptsvr.export._
 import net.sf.jasperreports.engine.{JasperPrint, JasperReportsContext}
 
 object ReportExporter {
-  def apply(jsContext: JasperReportsContext, format: ExportFormat.Value): ReportExporter = {
+  def apply(jsContext: JasperReportsContext, format: ExportFormat.Value, option:Option[String] = None): ReportExporter = {
     format match {
       case ExportFormat.pdf =>     new PdfExporter(jsContext)
-      case ExportFormat.html =>    new HtmlExporter(jsContext)
+      case ExportFormat.html =>    new HtmlExporter(jsContext, option)
       case ExportFormat.docx =>    new DocxExporter(jsContext)
       case ExportFormat.xls =>     new XlsExporter(jsContext)
       case ExportFormat.pptx =>    new PptxExporter(jsContext)
