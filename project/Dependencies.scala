@@ -38,7 +38,7 @@ object Dependencies {
     "com.h2database" % "h2" % "1.4.198"
   )
 
-  private val jasperReportVersion = "6.8.0"
+  private val jasperReportVersion = "6.9.0"
 
   val jasperreports: Seq[ModuleID] = Seq(
     // "net.sf.jasperreports" % "jasperreports-chart-themes", // this extension requires spring framework

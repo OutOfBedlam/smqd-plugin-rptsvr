@@ -26,6 +26,7 @@ import akka.util.ByteString
 import com.thing2x.rptsvr.{DataSourceResource, JdbcDataSourceResource, ReportUnitResource, Repository}
 import com.thing2x.smqd.Smqd
 import com.thing2x.smqd.plugin.Service
+import com.thing2x.smqd.util.ConfigUtil._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import net.sf.jasperreports.engine._
@@ -151,7 +152,7 @@ class ReportEngine(name: String, smqd: Smqd, config: Config) extends Service(nam
         // get resource files as Map[name, InputStream]
         val resources: Future[Map[String, Any]] = Future.sequence(
           ru.resources map { case (resourceName, resource) =>
-            logger.trace(s"load report resource: $resourceName ${resource.resourceType} ${resource.fileType}")
+            logger.debug(s"load report resource: $resourceName - $resource ")
             if (useResourceCache) {
               val f = resourceCache.fromFuture(resource.uri, resource.updateDate.map(_.getTime)){ loadResource(resource.uri) }
               f.map{ rsc =>
